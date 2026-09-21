@@ -146,6 +146,16 @@ export interface SessionSnapshot {
 export interface SessionCallbacks {
   onSnapshot: (snapshot: SessionSnapshot) => void;
   onRep: (assessment: RepAssessment) => void;
+  onMotionSample?: (sample: {
+    angle: number;
+    state?: string;
+    progress?: number;
+    repCompleted?: {
+      repNumber: number;
+      score?: number | null;
+      valid: boolean;
+    } | null;
+  }) => void;
 }
 
 export interface SessionConfig {
@@ -553,6 +563,13 @@ export class WorkoutSession {
       if (this.calibrationFrameLog.length > 60) this.calibrationFrameLog.shift();
 
       this.liveElbowAngle = frame.valid && Number.isFinite(angleToObserve) ? angleToObserve : null;
+      if (this.liveElbowAngle !== null && Number.isFinite(this.liveElbowAngle)) {
+        this.cfg.callbacks.onMotionSample?.({
+          angle: this.liveElbowAngle,
+          state: 'CALIBRATING',
+          progress: 0,
+        });
+      }
       return;
     }
 
@@ -578,6 +595,14 @@ export class WorkoutSession {
 
     const liveAngle = Number.isFinite(signal.phaseEvidence) ? signal.phaseEvidence : frame.elbowAngle;
     this.liveElbowAngle = liveAngle;
+
+    if (Number.isFinite(liveAngle)) {
+      this.cfg.callbacks.onMotionSample?.({
+        angle: liveAngle,
+        state: this.counter.getState(),
+        progress: this.counter.getCycleProgress(),
+      });
+    }
 
     if (this.phase !== 'active') return;
 
@@ -673,6 +698,17 @@ export class WorkoutSession {
     };
 
     this.cfg.callbacks.onRep(assessment);
+    const minElbowVal = minElbow(frames);
+    this.cfg.callbacks.onMotionSample?.({
+      angle: Number.isFinite(minElbowVal) ? minElbowVal : 90,
+      state: 'TOP',
+      progress: 1,
+      repCompleted: {
+        repNumber: index,
+        score: assessment.repScore,
+        valid: assessment.valid,
+      },
+    });
     this.emit(true);
   }
 

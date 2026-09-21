@@ -39,6 +39,7 @@ import type {
   WorkoutRepRecord,
 } from '@ai-pushup-coach/types';
 import { CalibrationPanel } from '@/components/CalibrationPanel';
+import { LiveMotionGraph, type LiveMotionGraphHandle } from '@/components/LiveMotionGraph';
 import { formatClock, formatInt, formatPercent } from '@/lib/format';
 
 export default function WorkoutPage() {
@@ -46,6 +47,7 @@ export default function WorkoutPage() {
   const poseRef = useRef<PoseEngine | null>(null);
   const sessionRef = useRef<WorkoutSession | null>(null);
   const stageRef = useRef<CameraStageHandle | null>(null);
+  const motionGraphRef = useRef<LiveMotionGraphHandle | null>(null);
 
   const [phase, setPhase] = useState<SessionPhase>('idle');
   const [error, setError] = useState<CaptureError | null>(null);
@@ -165,6 +167,7 @@ export default function WorkoutPage() {
           setPhase(snap.phase);
         },
         onRep: (assessment) => setLastAssessment(assessment),
+        onMotionSample: (sample) => motionGraphRef.current?.pushSample(sample),
       },
     });
     sessionRef.current = s;
@@ -353,6 +356,11 @@ export default function WorkoutPage() {
                 Frames processed locally · not stored
               </p>
             </div>
+          )}
+
+          {/* Real-time Push-Up Motion Oscilloscope Graph */}
+          {(phase === 'active' || phase === 'calibrating') && (
+            <LiveMotionGraph ref={motionGraphRef} height={140} className="mt-4" />
           )}
         </section>
 
@@ -780,6 +788,13 @@ function SessionResult({
         </div>
       </div>
 
+      {/* Visual Rep Performance Graph */}
+      <SessionRepChart
+        reps={reps}
+        selectedRep={selectedRep}
+        onSelectRep={setSelectedRep}
+      />
+
       {/* Rep-by-Rep Breakdown (Spec §30) */}
       <div className="mt-8 card p-5">
         <h2 className="text-base font-semibold text-ink">Rep-by-Rep Form Breakdown</h2>
@@ -918,6 +933,105 @@ function SessionResult({
         <Link href="/leaderboard" className="btn-secondary">
           View Leaderboard
         </Link>
+      </div>
+    </div>
+  );
+}
+
+function SessionRepChart({
+  reps,
+  selectedRep,
+  onSelectRep,
+}: {
+  reps: WorkoutRepRecord[];
+  selectedRep: WorkoutRepRecord | null;
+  onSelectRep: (r: WorkoutRepRecord) => void;
+}) {
+  if (reps.length === 0) return null;
+
+  return (
+    <div className="card p-5 mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Rep Performance Curve</h3>
+          <p className="text-xs text-ink-muted">Form score and depth per repetition</p>
+        </div>
+        <div className="flex items-center gap-4 text-xs">
+          <span className="flex items-center gap-1.5 text-accent">
+            <span className="h-2 w-2 rounded-sm bg-accent" />
+            Valid (≥75)
+          </span>
+          <span className="flex items-center gap-1.5 text-danger">
+            <span className="h-2 w-2 rounded-sm bg-danger" />
+            Needs work
+          </span>
+          <span className="flex items-center gap-1.5 text-warn">
+            <span className="h-2 w-2 rounded-sm bg-warn" />
+            Uncertain
+          </span>
+        </div>
+      </div>
+
+      <div className="relative h-44 w-full">
+        {/* 75 Good form threshold line */}
+        <div
+          className="absolute left-0 right-0 border-b border-dashed border-accent/40 z-10 pointer-events-none flex justify-end"
+          style={{ bottom: '75%' }}
+        >
+          <span className="text-[10px] font-mono text-accent pr-1 bg-base/80 rounded">
+            75 TARGET
+          </span>
+        </div>
+
+        {/* 50 Baseline */}
+        <div
+          className="absolute left-0 right-0 border-b border-dashed border-base-border/50 z-10 pointer-events-none flex justify-end"
+          style={{ bottom: '50%' }}
+        >
+          <span className="text-[10px] font-mono text-ink-faint pr-1">50</span>
+        </div>
+
+        {/* Rep Bars */}
+        <div className="absolute inset-0 flex items-end gap-1.5 sm:gap-2 px-2">
+          {reps.map((r) => {
+            const barHeight = Math.max(8, Math.min(100, r.repScore ?? 50));
+            const isSelected = selectedRep?.repNumber === r.repNumber;
+            const barColor = r.uncertain
+              ? 'bg-warn'
+              : r.valid
+                ? 'bg-accent'
+                : 'bg-danger';
+
+            return (
+              <button
+                key={r.repNumber}
+                onClick={() => onSelectRep(r)}
+                className={clsx(
+                  'relative group flex-1 flex flex-col items-center justify-end rounded-t transition-all hover:brightness-110 focus:outline-none',
+                  isSelected && 'ring-2 ring-white ring-offset-2 ring-offset-base',
+                )}
+                style={{ height: '100%' }}
+                aria-label={`Rep #${r.repNumber}: Score ${r.repScore?.toFixed(0) ?? '--'}, min angle ${r.minElbowAngleDeg?.toFixed(0) ?? '--'}°`}
+              >
+                {/* Tooltip on hover */}
+                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none rounded bg-base-sunken px-2 py-1 text-[10px] font-mono text-ink shadow whitespace-nowrap border border-base-border">
+                  #{r.repNumber}: {r.repScore?.toFixed(0)} pts · {r.minElbowAngleDeg?.toFixed(0)}°
+                </div>
+
+                {/* The Bar */}
+                <div
+                  className={clsx('w-full rounded-t transition-all', barColor)}
+                  style={{ height: `${barHeight}%` }}
+                />
+
+                {/* Rep label */}
+                <span className="mt-1 text-[10px] font-mono text-ink-muted">
+                  #{r.repNumber}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
