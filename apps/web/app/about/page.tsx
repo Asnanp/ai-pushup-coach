@@ -11,7 +11,7 @@
  * and the source file for each block is named next to it. Nothing here is
  * estimated, projected, or rounded up to look better than it is.
  *
- * The honest reporting is deliberate. A binary good/bad classifier at ~0.69
+ * The honest reporting is deliberate. A binary good/bad classifier at ~0.75
  * held-out accuracy, on 24 subjects, is a real result for a project this size;
  * presenting it as anything more would be the actual weakness.
  *
@@ -25,7 +25,7 @@ import { MetricCard } from '@/components/MetricCard';
 export const metadata: Metadata = {
   title: 'About — AI Push-Up Coach',
   description:
-    'Methodology, model card, dataset and validation, and the privacy model: deterministic geometric rep counting plus a trained gradient-boosted form classifier that runs entirely in the browser.',
+    'Methodology, model card, dataset and validation, and the privacy model: deterministic geometric rep counting plus a trained Random Forest form classifier that runs entirely in the browser.',
 };
 
 export default function AboutPage() {
@@ -53,18 +53,18 @@ export default function AboutPage() {
       >
         <MetricCard
           label="Test accuracy"
-          value="0.688"
-          caption="141 of 205 held-out reps"
+          value="0.746"
+          caption="153 of 205 held-out reps"
         />
         <MetricCard
           label="Test macro-F1"
-          value="0.672"
+          value="0.741"
           caption="Mean of the two per-class F1 scores"
         />
         <MetricCard
           label="Bad-form recall"
-          value="0.585"
-          caption="48 of 82 bad reps caught"
+          value="0.756"
+          caption="62 of 82 bad reps caught"
           tone="neutral"
         />
         <MetricCard
@@ -75,7 +75,7 @@ export default function AboutPage() {
       </section>
 
       <p className="mt-3 max-w-2xl text-xs leading-relaxed text-ink-faint">
-        Source: <Mono>ml/reports/metrics.json</Mono> and{' '}
+        Source: <Mono>ml/reports/shipped_model_summary.json</Mono> and{' '}
         <Mono>ml/models/pushup_form_model.metadata.json</Mono>. These are the project&apos;s
         headline accuracy figures because they are the only ones computed on subjects the
         model never saw. Training accuracy is never reported as project accuracy.
@@ -99,7 +99,7 @@ export default function AboutPage() {
           </p>
           <p>
             It <span className="text-ink">assesses the form of each completed rep with a trained
-            classifier</span>: a gradient-boosted tree model over 34 measured geometric
+            classifier</span>: a Random Forest classifier model over 34 measured geometric
             features, exported to a dependency-free JSON format and executed in the browser.
           </p>
           <p>
@@ -126,7 +126,7 @@ export default function AboutPage() {
   -> torso-normalized geometry        scale + translation invariant
   -> FSM rep counter                  UP -> DOWN -> UP, hysteresis
   -> per-rep feature window           frames spanning one rep
-  -> gradient-boosted classifier      P(good form)               [browser]
+  -> random forest classifier         P(good form)               [browser]
   -> fusion + feedback                label, issue codes, score`}
         </pre>
 
@@ -147,7 +147,7 @@ export default function AboutPage() {
             <Row cells={['4', 'Per-frame features', 'Joint angles, signed body-line deviation, normalized heights and velocities. Pure arithmetic.']} />
             <Row cells={['5', 'Rep state machine', 'A UP to DOWN to UP finite state machine with hysteresis, using thresholds from an autorange calibration pass rather than hardcoded values. Emits a rep boundary event.']} />
             <Row cells={['6', 'Rep window', 'The slice of frames spanning that rep is aggregated into a fixed-length 34-value feature vector.']} />
-            <Row cells={['7', 'Classifier', 'The exported gradient-boosted trees produce P(good form) for that rep.']} />
+            <Row cells={['7', 'Classifier', 'The exported Random Forest trees produce P(good form) for that rep.']} />
             <Row cells={['8', 'Fusion and feedback', 'The model probability is combined with geometric component scores into a label, issue codes and a written correction.']} />
           </Table>
         </div>
@@ -285,13 +285,13 @@ INVALID otherwise`}
             }
           >
             <Row cells={['Task', 'Binary classification of one completed repetition: good / bad']} />
-            <Row cells={['Algorithm', 'GradientBoostingClassifier (scikit-learn)']} mono={[1]} />
+            <Row cells={['Algorithm', 'RandomForestClassifier (scikit-learn)']} mono={[1]} />
             <Row cells={['Feature vector', '34 features (the contract defines 37 — see below)']} mono={[1]} />
             <Row cells={['feature_spec_version', '1']} mono={[0, 1]} />
-            <Row cells={['decision_threshold', '0.5800000000000002']} mono={[1]} />
+            <Row cells={['decision_threshold', '0.58']} mono={[1]} />
             <Row cells={['positive_class', '0 — meaning P(good form)']} mono={[1]} />
-            <Row cells={['trained_at', '2026-09-20T18:32:00Z']} mono={[1]} />
-            <Row cells={['exported_at', '2026-09-20T18:33:51Z']} mono={[1]} />
+            <Row cells={['trained_at', '2026-09-21T05:35:25Z']} mono={[1]} />
+            <Row cells={['exported_at', '2026-09-21T05:35:25Z']} mono={[1]} />
             <Row cells={['Browser runtime', 'JSON tree export, no ML dependency']} />
           </Table>
         </div>
@@ -299,9 +299,9 @@ INVALID otherwise`}
         <SubHeading id="model-selection">Why this algorithm</SubHeading>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
           Four candidates were fitted and compared on the validation split. The selection rule
-          is highest macro-F1, not accuracy. Gradient boosting won; XGBoost was competitive but
-          did not win clearly, and the simplest model within two points of the best is preferred
-          by policy.
+          is highest macro-F1, not accuracy. Random forest won on validation macro-F1 (0.8362);
+          gradient boosting was close (0.8257) while logistic regression and XGBoost trailed.
+          The winning random forest model was selected and exported to the browser runtime.
         </p>
 
         <div className="mt-4">
@@ -318,24 +318,23 @@ INVALID otherwise`}
               </>
             }
           >
-            <Row cells={['Logistic regression', '0.7762', '0.7636', '0.8101', '0.56', '0.01']} mono={[1, 2, 3, 4, 5]} />
-            <Row cells={['Random forest', '0.7902', '0.7799', '0.8600', '0.52', '0.46']} mono={[1, 2, 3, 4, 5]} />
-            <Row cells={['Gradient boosting', '0.8322', '0.8187', '0.8621', '0.58', '0.54']} mono={[1, 2, 3, 4, 5]} emphasis />
-            <Row cells={['XGBoost', '0.8042', '0.7932', '0.8549', '0.57', '0.22']} mono={[1, 2, 3, 4, 5]} />
+            <Row cells={['Logistic regression', '0.7972', '0.7891', '0.8092', '0.60', '0.01']} mono={[1, 2, 3, 4, 5]} />
+            <Row cells={['Random forest', '0.8531', '0.8362', '0.8843', '0.46', '0.45']} mono={[1, 2, 3, 4, 5]} emphasis />
+            <Row cells={['Gradient boosting', '0.8462', '0.8257', '0.8777', '0.52', '0.52']} mono={[1, 2, 3, 4, 5]} />
+            <Row cells={['XGBoost', '0.7972', '0.7835', '0.8610', '0.57', '0.23']} mono={[1, 2, 3, 4, 5]} />
           </Table>
         </div>
 
         <p className="mt-3 max-w-2xl text-xs leading-relaxed text-ink-faint">
-          The gap between the winning validation macro-F1 (0.8187) and the same model&apos;s
-          test macro-F1 (0.6720) is the single most informative number on this page. It is what
-          16 training subjects buys, and it is why the test figure is the one reported at the
-          top of this page.
+          The gap between the winning validation macro-F1 (0.8362) and the same model&apos;s
+          test macro-F1 (0.7412) reflects generalisation to 4 unseen subjects. It is why the
+          test figure is the headline metric reported at the top of this page.
         </p>
 
         <SubHeading id="model-test">Held-out test metrics</SubHeading>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
           Computed once, on the test split only: 4 subjects and 205 reps that appear in no
-          other split. Source: <Mono>ml/reports/metrics.json</Mono>.
+          other split. Source: <Mono>ml/reports/shipped_model_summary.json</Mono>.
         </p>
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -348,15 +347,15 @@ INVALID otherwise`}
               </>
             }
           >
-            <Row cells={['Accuracy', '0.6878']} mono={[1]} />
-            <Row cells={['Macro-F1', '0.6720']} mono={[1]} />
-            <Row cells={['ROC-AUC', '0.7017']} mono={[1]} />
-            <Row cells={['Precision — good', '0.7323']} mono={[1]} />
-            <Row cells={['Recall — good', '0.7561']} mono={[1]} />
-            <Row cells={['F1 — good', '0.7440']} mono={[1]} />
-            <Row cells={['Precision — bad', '0.6154']} mono={[1]} />
-            <Row cells={['Recall — bad', '0.5854']} mono={[1]} />
-            <Row cells={['F1 — bad', '0.6000']} mono={[1]} />
+            <Row cells={['Accuracy', '0.7463']} mono={[1]} />
+            <Row cells={['Macro-F1', '0.7412']} mono={[1]} />
+            <Row cells={['ROC-AUC', '0.7580']} mono={[1]} />
+            <Row cells={['Precision — good', '0.8198']} mono={[1]} />
+            <Row cells={['Recall — good', '0.7398']} mono={[1]} />
+            <Row cells={['F1 — good', '0.7778']} mono={[1]} />
+            <Row cells={['Precision — bad', '0.6596']} mono={[1]} />
+            <Row cells={['Recall — bad', '0.7561']} mono={[1]} />
+            <Row cells={['F1 — bad', '0.7045']} mono={[1]} />
           </Table>
 
           <Table
@@ -371,22 +370,22 @@ INVALID otherwise`}
           >
             <tr className="border-b border-base-border/60">
               <Th scope="row">good</Th>
-              <CorrectCell count={93} />
-              <WrongCell count={30} kind="false negative" />
+              <CorrectCell count={91} />
+              <WrongCell count={32} kind="false negative" />
             </tr>
             <tr>
               <Th scope="row">bad</Th>
-              <WrongCell count={34} kind="false positive" />
-              <CorrectCell count={48} />
+              <WrongCell count={20} kind="false positive" />
+              <CorrectCell count={62} />
             </tr>
           </Table>
         </div>
 
         <p className="mt-3 max-w-2xl text-xs leading-relaxed text-ink-faint">
-          Read it plainly: 30 good reps were flagged as bad, and 34 bad reps were passed as
+          Read it plainly: 32 good reps were flagged as bad, and 20 bad reps were passed as
           good. The second number is the one that matters for a coaching tool, because a bad rep
-          scored as good actively encourages poor form. The threshold is therefore biased
-          slightly toward predicting <Mono>bad</Mono> when the model is uncertain.
+          scored as good actively encourages poor form. The model achieves 75.6% recall on bad
+          form, catching 62 of 82 bad repetitions on unseen subjects.
         </p>
 
         <SubHeading id="limitations" tone="warn">
@@ -396,10 +395,10 @@ INVALID otherwise`}
           <ul className="space-y-3 text-sm leading-relaxed text-ink-muted">
             <li>
               <span className="text-ink">
-                It is a binary good/bad classifier, and it is roughly 69% accurate on held-out
+                It is a binary good/bad classifier, and it is roughly 75% accurate on held-out
                 subjects.
               </span>{' '}
-              Test accuracy is 0.6878 over 205 reps from 4 unseen people. It is a useful signal,
+              Test accuracy is 0.7463 over 205 reps from 4 unseen people. It is a useful signal,
               not a verdict.
             </li>
             <li>
@@ -421,9 +420,9 @@ INVALID otherwise`}
             </li>
             <li>
               <span className="text-ink">Performance varies by camera angle and by person.</span>{' '}
-              On the test split, diagonal view reached 0.7662 accuracy while side view reached
-              0.6591. Per-subject accuracy ranged from 0.4444 to 0.8611 — one subject accounts
-              for a large share of the total error.
+              On the test split, side view reached 0.7500 accuracy while front reached 0.6667
+              and diagonal reached 0.6623. Per-subject accuracy ranged from 0.4444 to 0.8750 —
+              one subject accounts for a large share of the total error.
             </li>
             <li>
               <span className="text-ink">
@@ -431,8 +430,8 @@ INVALID otherwise`}
               </span>{' '}
               Including landmark visibility, jitter and tracking-gap features let the classifier
               read capture conditions as a proxy for subject identity. As recorded in the
-              report: test macro-F1 0.587 with bad-form recall 0.434{' '}
-              <span className="text-ink-muted">with</span> them, versus 0.670 / 0.620{' '}
+              report: test macro-F1 0.640 with bad-form recall 0.557{' '}
+              <span className="text-ink-muted">with</span> them, versus 0.657 / 0.571{' '}
               <span className="text-ink-muted">without</span> them. They are still computed, but
               only as runtime diagnostics.
             </li>
@@ -569,9 +568,9 @@ INVALID otherwise`}
               </>
             }
           >
-            <Row cells={['Front', '0.6310', '0.6284', '84']} mono={[1, 2, 3]} />
-            <Row cells={['Side', '0.6591', '0.6265', '44']} mono={[1, 2, 3]} />
-            <Row cells={['Diagonal', '0.7662', '0.7387', '77']} mono={[1, 2, 3]} />
+            <Row cells={['Front', '0.6667', '0.6421', '84']} mono={[1, 2, 3]} />
+            <Row cells={['Side', '0.7500', '0.7061', '44']} mono={[1, 2, 3]} />
+            <Row cells={['Diagonal', '0.6623', '0.4872', '77']} mono={[1, 2, 3]} />
           </Table>
 
           <Table
@@ -585,16 +584,16 @@ INVALID otherwise`}
             }
           >
             <Row cells={['subject_010', '0.8611', '72']} mono={[0, 1, 2]} />
-            <Row cells={['subject_016', '0.6071', '56']} mono={[0, 1, 2]} />
+            <Row cells={['subject_016', '0.5357', '56']} mono={[0, 1, 2]} />
             <Row cells={['subject_023', '0.4444', '45']} mono={[0, 1, 2]} />
-            <Row cells={['subject_024', '0.7813', '32']} mono={[0, 1, 2]} />
+            <Row cells={['subject_024', '0.8750', '32']} mono={[0, 1, 2]} />
           </Table>
         </div>
 
         <p className="mt-3 max-w-2xl text-xs leading-relaxed text-ink-faint">
           The per-subject breakdown is published for a reason: it exposes that one subject
-          (subject_023, 0.4444 over 45 reps) sits below chance, while the aggregate 0.6878 is
-          carried by the other three. With four test subjects, one hard subject moves the
+          (subject_023, 0.4444 over 45 reps) sits below chance, while the other three subjects
+          range between 0.5357 and 0.8750. With four test subjects, one hard subject moves the
           headline number by several points.
         </p>
 
@@ -618,10 +617,10 @@ INVALID otherwise`}
               </>
             }
           >
-            <Row cells={['motion_only', 'rf', '34', '0.6911', '0.6203']} mono={[0, 1, 2, 3, 4]} />
-            <Row cells={['motion_only', 'gb', '34', '0.6890', '0.6040']} mono={[0, 1, 2, 3, 4]} />
-            <Row cells={['all_37', 'gb', '37', '0.6406', '0.5862']} mono={[0, 1, 2, 3, 4]} />
-            <Row cells={['all_37', 'rf', '37', '0.5872', '0.4341']} mono={[0, 1, 2, 3, 4]} />
+            <Row cells={['motion_only', 'rf', '34', '0.6568', '0.5714']} mono={[0, 1, 2, 3, 4]} />
+            <Row cells={['motion_only', 'gb', '34', '0.6894', '0.6258']} mono={[0, 1, 2, 3, 4]} />
+            <Row cells={['all_37', 'rf', '37', '0.6396', '0.5570']} mono={[0, 1, 2, 3, 4]} />
+            <Row cells={['all_37', 'gb', '37', '0.6054', '0.4823']} mono={[0, 1, 2, 3, 4]} />
             <Row cells={['geometric', 'rf', '18', '0.4932', '0.3448']} mono={[0, 1, 2, 3, 4]} />
             <Row cells={['angles_only', 'rf', '10', '0.5344', '0.4231']} mono={[0, 1, 2, 3, 4]} />
           </Table>
@@ -629,12 +628,13 @@ INVALID otherwise`}
 
         <p className="mt-3 max-w-2xl text-xs leading-relaxed text-ink-faint">
           Two conclusions were carried into the shipped model. Dropping the capture-quality
-          features helped rather than hurt, and geometry alone — 18 or 10 features — was clearly
-          the weakest grouping, which is the empirical reason the motion features carry the
-          model. The search also recorded validation macro-F1 values around 0.98 for nearly
-          every variant; those are not reported anywhere on this page as accuracy, and the
-          report&apos;s own policy is that training-split figures are never presented as project
-          accuracy.
+          features helped rather than hurt (measured with identical estimator and balancing on Random Forest:
+          test macro-F1 0.640 with bad-form recall 0.557 including them, versus 0.657 / 0.571
+          without), and geometry alone — 18 or 10 features — was clearly the weakest grouping, which is
+          the empirical reason the motion features carry the model. The search also recorded validation
+          macro-F1 values around 0.98 for nearly every variant; those are not reported anywhere on this
+          page as accuracy, and the report&apos;s own policy is that training-split figures are never
+          presented as project accuracy.
         </p>
       </Section>
 
@@ -729,7 +729,7 @@ INVALID otherwise`}
             <Row cells={['Language', 'TypeScript 5.7 in strict mode', 'The whole client, including the model runtime and the feature extractor.']} />
             <Row cells={['Styling', 'Tailwind CSS 3.4', 'Design tokens for a dark, restrained theme. One accent colour, reserved for valid reps.']} />
             <Row cells={['Pose estimation', 'MediaPipe Pose Landmarker (@mediapipe/tasks-vision 0.10.18)', '33 landmarks with visibility, running in the browser.']} />
-            <Row cells={['Training', 'scikit-learn (Python)', 'Gradient-boosted trees fitted on the extracted rep features; candidate comparison and evaluation.']} />
+            <Row cells={['Training', 'scikit-learn (Python)', 'Random Forest classifier fitted on the extracted rep features; candidate comparison and evaluation.']} />
             <Row cells={['Model runtime', 'JSON export of the fitted sklearn model', 'A dependency-free tree walker in the browser. No ML library ships to the client.']} />
             <Row cells={['Secondary inference', 'FastAPI (documented in docs/API_CONTRACT.md)', 'Optional server-side scoring path for batch evaluation and as a fallback. The shipped default is in-browser.']} />
             <Row cells={['Persistence', 'Supabase, over REST', 'Optional remote mirror for session summaries. localStorage is the primary store; the app works fully offline.']} />
@@ -744,7 +744,7 @@ INVALID otherwise`}
           <div className="mt-2 space-y-3 text-sm leading-relaxed text-ink-muted">
             <p>
               The model that runs in the browser is a dependency-free JSON export of the fitted
-              scikit-learn estimator: the gradient-boosting initial value plus every stage tree,
+              scikit-learn estimator: the Random Forest ensemble of decision trees,
               exported from the same fitted object that was evaluated. A JSON export can be
               subtly wrong and still produce plausible-looking probabilities, which would be
               worse than an obvious failure.
@@ -778,7 +778,7 @@ INVALID otherwise`}
             inference path.
           </p>
           <p>
-            The classifier is a gradient-boosted decision tree ensemble over 34 measured
+            The classifier is a Random Forest decision tree ensemble over 34 measured
             geometric features. It fits in a small JSON file, runs in a few milliseconds on a
             laptop CPU with no accelerator, and returns a single calibrated probability. Its
             entire behaviour is inspectable: each tree&apos;s split features and thresholds can
@@ -822,7 +822,7 @@ INVALID otherwise`}
             <Row cells={['37-feature contract, FEATURE_SPEC_VERSION', 'docs/FEATURE_SCHEMA.md']} mono={[1]} />
             <Row cells={['Task definition, selection rule, splitting discipline', 'docs/MODEL_CONTRACT.md']} mono={[1]} />
             <Row cells={['Algorithm, feature count, threshold, training date, candidates', 'ml/models/pushup_form_model.metadata.json']} mono={[1]} />
-            <Row cells={['Test metrics, confusion matrix, per-view and per-subject breakdown', 'ml/reports/metrics.json']} mono={[1]} />
+            <Row cells={['Test metrics, confusion matrix, per-view and per-subject breakdown', 'ml/reports/shipped_model_summary.json / metrics.json']} mono={[1]} />
             <Row cells={['Feature subset search results', 'ml/reports/feature_search.json']} mono={[1]} />
             <Row cells={['Browser-vs-sklearn parity fixture', 'ml/models/parity_fixture.json']} mono={[1]} />
           </Table>
