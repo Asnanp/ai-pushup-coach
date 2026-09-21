@@ -519,6 +519,37 @@ describe('Camera-check view gating', () => {
     expect(state.ready).toBe(true);
   });
 
+  it('lets front view calibrate and reach ready when feet/ankles are occluded behind the torso', () => {
+    const { session } = buildSession('front');
+    session.beginCalibration();
+
+    // Front pose with ankles occluded (visibility = 0)
+    const occludedFrontPose = (t: number, deg: number): PoseFrame => {
+      const p = frontPoseAtElbow(t, deg);
+      p.landmarks[27] = { x: 0, y: 0, z: 0, visibility: 0 };
+      p.landmarks[28] = { x: 0, y: 0, z: 0, visibility: 0 };
+      p.landmarks[29] = { x: 0, y: 0, z: 0, visibility: 0 };
+      p.landmarks[30] = { x: 0, y: 0, z: 0, visibility: 0 };
+      return p;
+    };
+
+    for (let i = 0; i < 70; i++) {
+      const deg = 127.5 + 22.5 * Math.cos((2 * Math.PI * i) / 60);
+      session.onPoseFrame(occludedFrontPose(i / 20, deg));
+    }
+
+    const state = session.getCalibrationState();
+    const fullBodyCheck = state.checks.find((c) => c.id === 'full-body');
+    const distCheck = state.checks.find((c) => c.id === 'distance');
+    const lightCheck = state.checks.find((c) => c.id === 'lighting');
+
+    expect(fullBodyCheck?.label).toBe('Upper body in frame');
+    expect(fullBodyCheck?.passed).toBe(true);
+    expect(distCheck?.passed).toBe(true);
+    expect(lightCheck?.passed).toBe(true);
+    expect(state.ready).toBe(true);
+  });
+
   it('fails the front check when the body is side-on, and the side check when face-on', () => {
     // Front selected, side-on body: mismatch, must be flagged.
     const frontSession = buildSession('front').session;

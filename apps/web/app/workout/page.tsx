@@ -60,6 +60,7 @@ export default function WorkoutPage() {
   const [voiceMode, setVoiceMode] = useState<VoiceCoachMode>('NORMAL');
   const [showDebug, setShowDebug] = useState(false);
   const [calibrationReady, setCalibrationReady] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [finishedRecords, setFinishedRecords] = useState<WorkoutRepRecord[]>([]);
 
   const failWith = useCallback((p: CaptureError) => {
@@ -288,6 +289,27 @@ export default function WorkoutPage() {
             </div>
           )}
 
+          {/* Hands-Free Auto-Start Countdown Overlay */}
+          {countdown !== null && (
+            <div
+              className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-card bg-base/65 backdrop-blur-sm animate-fade-in"
+              role="status"
+              aria-live="assertive"
+            >
+              <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-accent bg-base-raised/95 shadow-glow">
+                <span className="font-mono text-7xl font-black text-accent animate-pulse">
+                  {countdown > 0 ? countdown : 'GO!'}
+                </span>
+              </div>
+              <p className="mt-5 text-xl font-bold tracking-wide text-ink">
+                {countdown > 0 ? 'Get into push-up position...' : 'Begin Push-Ups!'}
+              </p>
+              <p className="mt-1 text-xs font-medium text-accent">
+                Hands-free automatic countdown
+              </p>
+            </div>
+          )}
+
           {phase === 'calibrating' && (
             <div className="mt-4">
               <CalibrationPanel
@@ -295,6 +317,7 @@ export default function WorkoutPage() {
                 session={sessionRef.current}
                 onReady={setCalibrationReady}
                 onStartCounting={handleBeginCounting}
+                onCountdownChange={setCountdown}
                 assetSource={assetSource}
               />
             </div>

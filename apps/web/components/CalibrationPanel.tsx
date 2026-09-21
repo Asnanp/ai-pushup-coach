@@ -12,7 +12,7 @@
  * Prevents the standing-lockout failure by requiring genuine range of motion before READY.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import type { CalibrationCheck, CalibrationPhase } from '@ai-pushup-coach/types';
 import type { PoseStatus } from '@ai-pushup-coach/pose';
@@ -24,6 +24,7 @@ interface Props {
   session: WorkoutSession | null;
   onReady: (ready: boolean) => void;
   onStartCounting: () => void;
+  onCountdownChange?: (countdown: number | null) => void;
   assetSource?: string | null;
 }
 
@@ -32,6 +33,7 @@ export function CalibrationPanel({
   session,
   onReady,
   onStartCounting,
+  onCountdownChange,
   assetSource,
 }: Props) {
   const [checks, setChecks] = useState<CalibrationCheck[]>([]);
@@ -41,6 +43,12 @@ export function CalibrationPanel({
   const [repsDone, setRepsDone] = useState(0);
   const [repsNeeded, setRepsNeeded] = useState(2);
   const [promptMsg, setPromptMsg] = useState('');
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [autoStartEnabled, setAutoStartEnabled] = useState(true);
+
+  const autoStartFiredRef = useRef(false);
+  const onStartCountingRef = useRef(onStartCounting);
+  onStartCountingRef.current = onStartCounting;
 
   useEffect(() => {
     if (!session) return;
@@ -65,6 +73,64 @@ export function CalibrationPanel({
   useEffect(() => {
     onReady(ready);
   }, [ready, onReady]);
+
+  // Sync countdown to parent so live camera stage can render giant numerals
+  useEffect(() => {
+    onCountdownChange?.(countdown);
+  }, [countdown, onCountdownChange]);
+
+  // Hands-free auto-countdown when calibration is complete
+  useEffect(() => {
+    if (!ready || !autoStartEnabled) return;
+    if (autoStartFiredRef.current || countdown !== null) return;
+
+    autoStartFiredRef.current = true;
+    setCountdown(3);
+    session?.getVoiceCoach().speak('Ready. Starting in three...', true);
+  }, [ready, autoStartEnabled, countdown, session]);
+
+  // Countdown timer loop
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      session?.getVoiceCoach().speak('Go!', true);
+      onStartCountingRef.current();
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCountdown((prev) => {
+        if (prev === null) return null;
+        const next = prev - 1;
+        if (next === 2) {
+          session?.getVoiceCoach().speak('Two', true);
+        } else if (next === 1) {
+          session?.getVoiceCoach().speak('One', true);
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [countdown, session]);
+
+  // Spacebar shortcut: allows quick hands-free trigger
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.code === 'Space' &&
+        (e.target === document.body || (e.target as HTMLElement)?.tagName !== 'INPUT')
+      ) {
+        e.preventDefault();
+        if (countdown === null) {
+          setCountdown(3);
+          session?.getVoiceCoach().speak('Starting in three...', true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [countdown, session]);
 
   const poseReady = poseStatus === 'running' || poseStatus === 'ready';
 
@@ -146,37 +212,102 @@ export function CalibrationPanel({
         </div>
       )}
 
+      {/* Active countdown banner */}
+      {countdown !== null && (
+        <div className="mt-3 flex items-center justify-between rounded-card border border-accent bg-accent/10 p-3.5 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-base font-black text-white shadow-glow">
+              {countdown > 0 ? countdown : 'GO'}
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">
+                {countdown > 0 ? `Starting workout in ${countdown}s (hands-free)` : 'Starting workout now!'}
+              </p>
+              <p className="text-xs text-ink-muted">
+                Get into push-up position — reps will begin counting automatically
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="btn-primary text-xs py-1.5 px-3"
+              onClick={() => {
+                setCountdown(null);
+                onStartCounting();
+              }}
+            >
+              Start now
+            </button>
+            <button
+              className="btn-secondary text-xs py-1.5 px-3"
+              onClick={() => {
+                setCountdown(null);
+                autoStartFiredRef.current = false;
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           className="btn-primary"
-          onClick={onStartCounting}
-          disabled={!ready}
+          onClick={() => {
+            setCountdown(null);
+            onStartCounting();
+          }}
+          disabled={!ready && countdown === null}
           aria-describedby={!ready ? 'calib-hint' : undefined}
         >
-          Start counting
+          {countdown !== null ? 'Start counting now' : 'Start counting'}
         </button>
 
-        {!ready && (
+        {!ready && countdown === null && (
+          <button
+            className="btn-secondary text-xs"
+            onClick={() => {
+              setCountdown(3);
+              session?.getVoiceCoach().speak('Starting in three...', true);
+            }}
+            title="Start a 3-second countdown and begin workout without waiting for all checks"
+          >
+            Skip &amp; start in 3s (hands-free)
+          </button>
+        )}
+
+        {!ready && countdown === null && (
           <span id="calib-hint" className="text-xs text-ink-muted">
-            Perform practice movement to unlock counting
+            Do practice reps, tap [Space], or click Skip to start
           </span>
         )}
 
-        {ready && (
-          <span className="text-xs text-accent">
-            Ready — start your workout when you are
+        {ready && countdown === null && (
+          <span className="text-xs text-accent font-medium">
+            Ready — auto-start countdown active
           </span>
         )}
+
+        <label className="ml-auto flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={autoStartEnabled}
+            onChange={(e) => setAutoStartEnabled(e.target.checked)}
+            className="rounded border-base-border accent-accent"
+          />
+          Hands-free auto-countdown
+        </label>
 
         {elbowNow !== null && Number.isFinite(elbowNow) && (
-          <span className="ml-auto font-mono text-[11px] text-ink-faint">
+          <span className="font-mono text-[11px] text-ink-faint">
             live elbow {formatInt(elbowNow)}°
           </span>
         )}
       </div>
 
       <p className="mt-3 text-xs text-ink-faint">
-        Camera frames are analyzed for pose estimation and are not stored.
+        Camera frames are analyzed for pose estimation and are not stored. Press [Space] to quick-start.
       </p>
     </div>
   );

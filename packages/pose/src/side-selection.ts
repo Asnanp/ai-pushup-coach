@@ -51,9 +51,13 @@ export function meanVisibility(landmarks: Landmark[], indices: number[]): number
 }
 
 export function computeSideVisibility(landmarks: Landmark[]): SideVisibility {
+  const fullLeft = meanVisibility(landmarks, LEFT_SIDE);
+  const fullRight = meanVisibility(landmarks, RIGHT_SIDE);
+  const upperLeft = meanVisibility(landmarks, [L_SHOULDER, L_ELBOW, L_WRIST, L_HIP]);
+  const upperRight = meanVisibility(landmarks, [R_SHOULDER, R_ELBOW, R_WRIST, R_HIP]);
   return {
-    left: meanVisibility(landmarks, LEFT_SIDE),
-    right: meanVisibility(landmarks, RIGHT_SIDE),
+    left: Math.max(fullLeft, upperLeft * 0.9),
+    right: Math.max(fullRight, upperRight * 0.9),
   };
 }
 

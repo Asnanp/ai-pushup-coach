@@ -309,11 +309,15 @@ export class WorkoutSession {
     const recent = frames.slice(-30);
     const validFrames = recent.filter((f) => f.valid);
 
-    const bodyVisible =
-      validFrames.length >= 5 &&
-      recent.slice(-10).every((f) => f.anklesVisible);
+    const isFront = this.activeV2View === 'VIEW_FRONT';
 
-    const poseDetected = validFrames.length >= 10;
+    const bodyVisible = isFront
+      ? validFrames.length >= 3 && recent.slice(-10).some((f) => f.upperBodyVisible)
+      : validFrames.length >= 5 && recent.slice(-10).every((f) => f.anklesVisible);
+
+    const poseDetected =
+      validFrames.length >= 5 ||
+      (isFront && recent.filter((f) => f.upperBodyVisible).length >= 5);
 
     const viewScore = mean(recent.map((f) => f.sideDominance));
     const effectiveView: CameraView =
@@ -323,25 +327,38 @@ export class WorkoutSession {
     const viewCheck = VIEW_CHECKS[effectiveView] ?? VIEW_CHECKS['diagonal'];
     const viewOk = this.userViewMode === 'AUTO' ? true : viewCheck.ok(viewScore);
 
-    const conf = mean(recent.map((f) => f.sideVisibility));
-    const lightingOk = conf >= 0.6;
+    const conf = mean(
+      recent.map((f) => (isFront ? f.upperBodyVisibility : f.sideVisibility)),
+    );
+    const lightingOk = conf >= 0.45;
 
     const span = mean(recent.map((f) => f.bodySpanRatio));
-    const distanceOk = span >= 0.12 && span <= 0.75;
+    const distanceOk = isFront
+      ? span >= 0.10 && span <= 0.85
+      : span >= 0.12 && span <= 0.75;
 
     const stable = this.calibrationHasRom;
+
+    // Safety fallback: if ROM has already been demonstrated through practice reps,
+    // the user has definitively proven presence and active push-up movement.
+    const effectiveDistanceOk = distanceOk || stable;
+    const effectiveLightingOk = lightingOk || stable;
+    const effectivePoseOk = poseDetected || stable;
+    const effectiveBodyVisible = bodyVisible || stable;
 
     const checks: CalibrationCheck[] = [
       {
         id: 'full-body',
-        label: 'Full body in frame',
-        passed: bodyVisible,
-        hint: 'Move further from the camera so your feet are visible.',
+        label: isFront ? 'Upper body in frame' : 'Full body in frame',
+        passed: effectiveBodyVisible,
+        hint: isFront
+          ? 'Position yourself so your shoulders, chest, and arms are in view.'
+          : 'Move further from the camera so your feet are visible.',
       },
       {
         id: 'pose',
         label: 'Pose detected',
-        passed: poseDetected,
+        passed: effectivePoseOk,
         hint: 'Step into the frame and hold a push-up position.',
       },
       {
@@ -353,14 +370,16 @@ export class WorkoutSession {
       {
         id: 'lighting',
         label: 'Lighting',
-        passed: lightingOk,
+        passed: effectiveLightingOk,
         hint: 'Add light or avoid strong backlighting behind you.',
       },
       {
         id: 'distance',
         label: 'Distance',
-        passed: distanceOk,
-        hint: 'Adjust your distance — you are too close or too far.',
+        passed: effectiveDistanceOk,
+        hint: isFront
+          ? 'Adjust distance — ensure shoulders and chest fill the frame comfortably.'
+          : 'Adjust your distance — you are too close or too far.',
       },
       {
         id: 'stable',
@@ -530,7 +549,7 @@ export class WorkoutSession {
         }
       }
 
-      this.calibrationFrameLog.push(buildObservation(frame, pose));
+      this.calibrationFrameLog.push(buildObservation(frame, pose, this.activeV2View));
       if (this.calibrationFrameLog.length > 60) this.calibrationFrameLog.shift();
 
       this.liveElbowAngle = frame.valid && Number.isFinite(angleToObserve) ? angleToObserve : null;
@@ -760,16 +779,24 @@ interface CalibrationObservation {
   valid: boolean;
   sideVisibility: number;
   anklesVisible: boolean;
+  upperBodyVisible: boolean;
+  upperBodyVisibility: number;
   sideDominance: number;
   bodySpanRatio: number;
 }
 
-function buildObservation(frame: FrameFeatures, pose?: PoseFrame): CalibrationObservation {
+function buildObservation(
+  frame: FrameFeatures,
+  pose?: PoseFrame,
+  activeView: V2CameraView = 'VIEW_UNKNOWN',
+): CalibrationObservation {
   if (!pose || !pose.valid || pose.landmarks.length < 33) {
     return {
       valid: false,
       sideVisibility: 0,
       anklesVisible: false,
+      upperBodyVisible: false,
+      upperBodyVisibility: 0,
       sideDominance: 0,
       bodySpanRatio: 0,
     };
@@ -780,48 +807,95 @@ function buildObservation(frame: FrameFeatures, pose?: PoseFrame): CalibrationOb
   const R_ANKLE = 28;
   const L_SHOULDER = 11;
   const R_SHOULDER = 12;
+  const L_ELBOW = 13;
+  const R_ELBOW = 14;
+  const L_WRIST = 15;
+  const R_WRIST = 16;
   const L_HIP = 23;
   const R_HIP = 24;
 
   const ankleL = lms[L_ANKLE];
   const ankleR = lms[R_ANKLE];
+  const shL = lms[L_SHOULDER];
+  const shR = lms[R_SHOULDER];
+  const elL = lms[L_ELBOW];
+  const elR = lms[R_ELBOW];
+  const wrL = lms[L_WRIST];
+  const wrR = lms[R_WRIST];
+  const hipL = lms[L_HIP];
+  const hipR = lms[R_HIP];
 
   const anklesVisible =
     !!ankleL &&
     !!ankleR &&
-    ankleL.visibility > 0.5 &&
-    ankleR.visibility > 0.5 &&
-    ankleL.y < 0.98 &&
-    ankleR.y < 0.98 &&
-    ankleL.x > 0.02 &&
-    ankleR.x > 0.02 &&
-    ankleL.x < 0.98 &&
-    ankleR.x < 0.98;
+    ankleL.visibility > 0.4 &&
+    ankleR.visibility > 0.4 &&
+    ankleL.y < 0.99 &&
+    ankleR.y < 0.99 &&
+    ankleL.x > 0.01 &&
+    ankleR.x > 0.01 &&
+    ankleL.x < 0.99 &&
+    ankleR.x < 0.99;
+
+  // Upper body check (crucial for front view where feet are positioned behind torso)
+  const shouldersOk =
+    !!shL &&
+    !!shR &&
+    shL.visibility > 0.35 &&
+    shR.visibility > 0.35 &&
+    shL.x > 0.01 &&
+    shL.x < 0.99 &&
+    shR.x > 0.01 &&
+    shR.x < 0.99 &&
+    shL.y > 0.01 &&
+    shL.y < 0.99 &&
+    shR.y > 0.01 &&
+    shR.y < 0.99;
+
+  const armsOk =
+    (!!elL && elL.visibility > 0.3) ||
+    (!!elR && elR.visibility > 0.3) ||
+    (!!wrL && wrL.visibility > 0.3) ||
+    (!!wrR && wrR.visibility > 0.3);
+
+  const upperBodyVisible = shouldersOk && armsOk;
+
+  const upperLms = [shL, shR, elL, elR, wrL, wrR, hipL, hipR].filter(Boolean);
+  const upperBodyVisibility =
+    upperLms.length > 0
+      ? upperLms.reduce((acc, lm) => acc + (lm.visibility ?? 0), 0) / upperLms.length
+      : 0;
 
   const shMid = {
-    x: ((lms[L_SHOULDER]?.x ?? 0) + (lms[R_SHOULDER]?.x ?? 0)) / 2,
-    y: ((lms[L_SHOULDER]?.y ?? 0) + (lms[R_SHOULDER]?.y ?? 0)) / 2,
+    x: ((shL?.x ?? 0) + (shR?.x ?? 0)) / 2,
+    y: ((shL?.y ?? 0) + (shR?.y ?? 0)) / 2,
   };
   const hipMid = {
-    x: ((lms[L_HIP]?.x ?? 0) + (lms[R_HIP]?.x ?? 0)) / 2,
-    y: ((lms[L_HIP]?.y ?? 0) + (lms[R_HIP]?.y ?? 0)) / 2,
+    x: ((hipL?.x ?? 0) + (hipR?.x ?? 0)) / 2,
+    y: ((hipL?.y ?? 0) + (hipR?.y ?? 0)) / 2,
   };
   const torsoLen = Math.hypot(shMid.x - hipMid.x, shMid.y - hipMid.y) || 1e-6;
   const shoulderWidth = Math.hypot(
-    (lms[L_SHOULDER]?.x ?? 0) - (lms[R_SHOULDER]?.x ?? 0),
-    (lms[L_SHOULDER]?.y ?? 0) - (lms[R_SHOULDER]?.y ?? 0),
+    (shL?.x ?? 0) - (shR?.x ?? 0),
+    (shL?.y ?? 0) - (shR?.y ?? 0),
   );
   const widthRatio = shoulderWidth / torsoLen;
   const sideDominance = clamp01((1.2 - widthRatio) / 0.7);
 
-  const spanX = Math.abs((lms[L_ANKLE]?.x ?? 0) - shMid.x);
-  const spanY = Math.abs((lms[L_ANKLE]?.y ?? 0) - shMid.y);
-  const bodySpanRatio = Math.hypot(spanX, spanY);
+  const spanX = Math.abs((ankleL?.x ?? 0) - shMid.x);
+  const spanY = Math.abs((ankleL?.y ?? 0) - shMid.y);
+  const sideBodySpan = Math.hypot(spanX, spanY);
+  const frontBodySpan = Math.max(shoulderWidth, torsoLen * 0.9);
+
+  const isFront = activeView === 'VIEW_FRONT' || widthRatio > 0.85;
+  const bodySpanRatio = isFront ? frontBodySpan : sideBodySpan;
 
   return {
     valid: frame.valid,
     sideVisibility: pose.sideVisibility,
     anklesVisible,
+    upperBodyVisible,
+    upperBodyVisibility,
     sideDominance,
     bodySpanRatio,
   };
