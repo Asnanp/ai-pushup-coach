@@ -194,11 +194,11 @@ export default function LeaderboardPage() {
                       const isPodium = rank <= 3;
                       const rankBadge =
                         rank === 1
-                          ? 'border-accent/50 bg-accent/20 text-accent font-black shadow-glow-sm'
+                          ? 'border-ink bg-ink text-base font-bold'
                           : rank === 2
-                            ? 'border-cyan/40 bg-cyan/15 text-cyan font-bold'
+                            ? 'border-base-border bg-base-sunken text-ink font-semibold'
                             : rank === 3
-                              ? 'border-warn/40 bg-warn/15 text-warn font-bold'
+                              ? 'border-base-border bg-base-sunken text-ink-muted font-medium'
                               : 'text-ink-muted';
 
                       return (

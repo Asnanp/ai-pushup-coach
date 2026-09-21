@@ -511,10 +511,10 @@ function Tile({
 }) {
   const borderTone =
     tone === 'good'
-      ? 'border-accent/30 bg-accent/[0.04] shadow-glow-sm'
+      ? 'border-emerald-500/30 bg-emerald-500/[0.04]'
       : tone === 'bad'
         ? 'border-danger/30 bg-danger/[0.04]'
-        : 'border-base-border/80 bg-base-raised/80';
+        : 'border-base-border bg-base-raised';
 
   return (
     <div className={clsx('card p-4 transition-all duration-200', borderTone)}>

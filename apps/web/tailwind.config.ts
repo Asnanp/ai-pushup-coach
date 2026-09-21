@@ -17,40 +17,41 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Deep, neutral dark surfaces
+        // Architectural Swiss editorial palette (off-white canvas, pure white cards)
         base: {
-          DEFAULT: '#0B0E14', // page background
-          raised: '#131822', // cards / panels
-          sunken: '#07090D', // camera letterbox
-          border: '#1F2633', // subtle borders
-          hover: '#1B2230',
+          DEFAULT: '#F9F9F8', // clean editorial off-white
+          raised: '#FFFFFF', // pure white card surface
+          sunken: '#F0F0EE', // subtle sunken surface
+          border: '#E5E5E3', // crisp hairline border
+          hover: '#EBEBE8',
         },
-        // Clean neutral text
+        // High contrast editorial typography
         ink: {
-          DEFAULT: '#F3F4F6', // primary crisp white
-          muted: '#9CA3AF', // secondary neutral gray
-          faint: '#6B7280', // tertiary / captions
+          DEFAULT: '#111111', // deep charcoal / black
+          muted: '#555555', // clean editorial body gray
+          faint: '#888888', // subtle index numbering / captions
         },
-        // Purposeful functional accents (used strictly for state/results)
+        // High-contrast primary action (solid black)
         accent: {
-          DEFAULT: '#10B981', // emerald for valid reps / good form
-          dim: '#059669',
-          wash: 'rgba(16, 185, 129, 0.1)',
+          DEFAULT: '#111111',
+          dim: '#262626',
+          wash: 'rgba(0, 0, 0, 0.05)',
         },
+        // Functional telemetry accents
         cyan: {
-          DEFAULT: '#06B6D4', // clean cyan for active telemetry
-          dim: '#0891B2',
-          wash: 'rgba(6, 182, 212, 0.1)',
+          DEFAULT: '#0284C7',
+          dim: '#0369A1',
+          wash: 'rgba(2, 132, 199, 0.08)',
         },
         danger: {
-          DEFAULT: '#EF4444', // clean red for invalid reps / errors
-          dim: '#DC2626',
-          wash: 'rgba(239, 68, 68, 0.1)',
+          DEFAULT: '#DC2626',
+          dim: '#B91C1C',
+          wash: 'rgba(220, 38, 38, 0.08)',
         },
         warn: {
-          DEFAULT: '#F59E0B', // amber for transitions / calibration
-          dim: '#D97706',
-          wash: 'rgba(245, 158, 11, 0.1)',
+          DEFAULT: '#D97706',
+          dim: '#B45309',
+          wash: 'rgba(217, 119, 6, 0.08)',
         },
       },
       fontFamily: {
@@ -70,15 +71,15 @@ const config: Config = {
         ],
       },
       fontSize: {
-        metric: ['3.5rem', { lineHeight: '1', letterSpacing: '-0.03em', fontWeight: '700' }],
-        metricSm: ['2rem', { lineHeight: '1', letterSpacing: '-0.02em', fontWeight: '600' }],
-        display: ['2.25rem', { lineHeight: '1.15', letterSpacing: '-0.02em', fontWeight: '700' }],
+        metric: ['3.5rem', { lineHeight: '1', letterSpacing: '-0.04em', fontWeight: '700' }],
+        metricSm: ['2rem', { lineHeight: '1', letterSpacing: '-0.03em', fontWeight: '600' }],
+        display: ['2.5rem', { lineHeight: '1.08', letterSpacing: '-0.04em', fontWeight: '700' }],
         label: ['0.6875rem', { lineHeight: '1.4', letterSpacing: '0.08em', fontWeight: '600' }],
       },
       borderRadius: {
-        card: '12px',
-        control: '8px',
-        chip: '6px',
+        card: '16px',
+        control: '9999px',
+        chip: '9999px',
       },
     },
   },

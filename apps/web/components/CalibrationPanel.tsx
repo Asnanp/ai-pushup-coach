@@ -219,7 +219,7 @@ export function CalibrationPanel({
       {countdown !== null && (
         <div className="mt-3 flex items-center justify-between rounded-card border border-accent bg-accent/10 p-3.5 animate-fade-in">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-base font-black text-white shadow-glow">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-sm font-bold text-base shadow-sm">
               {countdown > 0 ? countdown : 'GO'}
             </span>
             <div>

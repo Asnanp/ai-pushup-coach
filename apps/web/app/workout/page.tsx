@@ -292,7 +292,7 @@ export default function WorkoutPage() {
           {phase === 'idle' && !error && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
-                className="btn-primary py-2.5 px-6 font-display text-base font-extrabold uppercase tracking-wider shadow-glow hover:scale-[1.02] active:scale-[0.98]"
+                className="btn-primary px-6 py-2.5 text-xs font-semibold uppercase tracking-wider"
                 onClick={handleStart}
               >
                 <PlayIcon />
@@ -303,7 +303,7 @@ export default function WorkoutPage() {
               <button
                 className={clsx(
                   'btn-secondary text-xs font-mono uppercase tracking-wider',
-                  showDebug && 'bg-base-hover border-accent text-accent shadow-glow-sm',
+                  showDebug && 'bg-base-hover border-ink text-ink',
                 )}
                 onClick={() => setShowDebug((d) => !d)}
               >
@@ -322,16 +322,16 @@ export default function WorkoutPage() {
             (phase === 'calibrating' ||
               (countdown === 0 && (snapshot?.elapsedSeconds ?? 0) < 1.1)) && (
             <div
-              className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-card bg-base/75 backdrop-blur-sm animate-fade-in"
+              className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-card bg-base/80 backdrop-blur-sm animate-fade-in"
               role="status"
               aria-live="assertive"
             >
-              <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-accent bg-base-raised">
-                <span className="text-5xl font-bold text-accent">
-                  {countdown > 0 ? countdown : 'Go!'}
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-ink/80 bg-base-raised shadow-sm">
+                <span className="text-4xl font-extrabold text-ink tabular font-mono">
+                  {countdown > 0 ? countdown : 'GO'}
                 </span>
               </div>
-              <p className="mt-4 text-base font-semibold text-ink">
+              <p className="mt-4 text-sm font-semibold tracking-wide uppercase text-ink">
                 {countdown > 0 ? 'Get into push-up position' : 'Begin Push-Ups!'}
               </p>
             </div>
@@ -780,12 +780,12 @@ function SessionResult({
   return (
     <div className="mx-auto max-w-4xl px-5 py-8 sm:py-12">
       <div className="text-center">
-        <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-accent/40 bg-accent/10 text-accent shadow-glow-sm">
-          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-600">
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="mt-4 font-display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
           Workout Complete
         </h1>
         <p className="mt-1 text-sm font-medium text-ink-muted">
@@ -951,18 +951,18 @@ function SessionResult({
       )}
 
       {/* Navigation actions */}
-      <div className="mt-10 flex flex-wrap justify-center gap-3.5">
+      <div className="mt-10 flex flex-wrap justify-center gap-3">
         <button
-          className="btn-primary py-3 px-6 font-display text-base font-extrabold uppercase tracking-wider shadow-glow hover:scale-105"
+          className="btn-primary px-6 py-2.5 text-xs font-semibold uppercase tracking-wider"
           onClick={onRestart}
         >
           Start Another Set
         </button>
-        <Link href="/progress" className="btn-secondary py-3 px-5 font-semibold">
-          View Progress & Trends
+        <Link href="/progress" className="btn-secondary px-5 py-2.5 text-xs font-medium uppercase tracking-wider">
+          View Progress &amp; Trends
         </Link>
-        <Link href="/challenge" className="btn-secondary py-3 px-5 font-semibold">
-          30s Tournament Mode
+        <Link href="/challenge" className="btn-secondary px-5 py-2.5 text-xs font-medium uppercase tracking-wider">
+          30s Challenge
         </Link>
         <Link href="/leaderboard" className="btn-ghost py-3 px-4 font-semibold text-ink-muted hover:text-ink">
           Leaderboard
