@@ -21,7 +21,7 @@ import type { MetadataRoute } from 'next';
  * builds. The app ships no other site-URL variable.
  */
 
-const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ai-pushup-couch.vercel.app').replace(/\/$/, '');
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

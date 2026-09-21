@@ -4,10 +4,11 @@ import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 
 export const metadata: Metadata = {
-  title: 'AI Push-Up Coach — Better form. A stronger you.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ai-pushup-couch.vercel.app'),
+  title: 'ai-pushup-couch — Better form. A stronger you.',
   description:
     'Real-time push-up form analysis using on-device pose estimation. Counts reps, detects form faults, and scores your technique.',
-  applicationName: 'AI Push-Up Coach',
+  applicationName: 'ai-pushup-couch',
 };
 
 export const viewport = {
