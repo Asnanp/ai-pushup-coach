@@ -1,0 +1,25 @@
+{
+  "name": "ai-pushup-coach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time push-up form coach: MediaPipe pose estimation, an FSM rep counter, and a trained sklearn form classifier exported to a dependency-free JSON runtime.",
+  "scripts": {
+    "build:packages": "node scripts/build-packages.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "build": "npm run build:packages && npm --prefix apps/web run build",
+    "dev": "npm --prefix apps/web run dev",
+    "start": "npm --prefix apps/web run start",
+    "lint": "npm --prefix apps/web run lint",
+    "test": "npm run test:py",
+    "test:py": "node scripts/run-tests.mjs",
+    "test:js": "npm --prefix apps/web run test",
+    "fetch:pose-assets": "node scripts/fetch-pose-assets.mjs",
+    "ml:pipeline": "node scripts/ml-pipeline.mjs"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

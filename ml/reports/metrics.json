@@ -1,0 +1,276 @@
+{
+  "generated_at": "2026-09-21T04:35:43Z",
+  "feature_spec_version": 1,
+  "n_features": 34,
+  "n_features_contract": 37,
+  "feature_names": [
+    "elbow_angle_deg_mean",
+    "elbow_angle_deg_min",
+    "elbow_angle_deg_max",
+    "shoulder_angle_deg_mean",
+    "hip_angle_deg_mean",
+    "hip_angle_deg_min",
+    "knee_angle_deg_mean",
+    "body_line_deviation_mean",
+    "body_line_deviation_max_abs",
+    "body_line_deviation_std",
+    "shoulder_hip_ankle_angle_deg_mean",
+    "torso_slope_deg_mean",
+    "shoulder_ankle_height_delta_mean",
+    "shoulder_elbow_height_delta_min",
+    "shoulder_elbow_height_delta_mean",
+    "rom_elbow_deg",
+    "min_elbow_angle_deg",
+    "depth_ratio",
+    "elbow_angular_velocity_max",
+    "elbow_angular_velocity_mean",
+    "elbow_velocity_down_mean",
+    "elbow_velocity_up_mean",
+    "rep_duration_s",
+    "descent_duration_s",
+    "ascent_duration_s",
+    "descent_ascent_ratio",
+    "elbow_angle_std",
+    "hip_height_std",
+    "hip_vertical_velocity_max",
+    "shoulder_vertical_velocity_max",
+    "pause_at_bottom_s",
+    "jitter_score",
+    "body_line_deviation_range",
+    "elbow_angle_opposite_deg_mean"
+  ],
+  "excluded_capture_features": [
+    "jitter_max",
+    "jitter_mean",
+    "jitter_std",
+    "low_confidence_ratio",
+    "mean_visibility",
+    "min_visibility",
+    "tracking_gap_ratio"
+  ],
+  "feature_subset_rationale": "Capture-quality features (visibility, jitter, tracking gaps) are kept as runtime diagnostics but excluded from the model. Including them let the classifier read capture conditions as a proxy for subject identity. Measured with identical estimator and balancing (random forest, balanced) via tune_features.py: test macro-F1 0.640 with bad-form recall 0.557 including them, versus 0.657 / 0.571 without. Both improve; the margin is modest on the repaired dataset (see docs/BUILD_STATUS.md section 2.11).",
+  "dataset": {
+    "total_reps": 917,
+    "train_reps": 569,
+    "validation_reps": 143,
+    "test_reps": 205,
+    "train_subjects": [
+      "001",
+      "002",
+      "004",
+      "005",
+      "006",
+      "008",
+      "009",
+      "011",
+      "012",
+      "013",
+      "015",
+      "017",
+      "018",
+      "020",
+      "021",
+      "022"
+    ],
+    "validation_subjects": [
+      "003",
+      "007",
+      "014",
+      "019"
+    ],
+    "test_subjects": [
+      "010",
+      "016",
+      "023",
+      "024"
+    ],
+    "split_strategy": "subject-independent, sha256-hash-banded"
+  },
+  "candidates": {
+    "logistic_regression": {
+      "val_accuracy": 0.7972027972027972,
+      "val_macro_f1": 0.789117721840834,
+      "threshold": 0.6000000000000002,
+      "val_roc_auc": 0.8092497868712704,
+      "fit_seconds": 0.01
+    },
+    "random_forest": {
+      "val_accuracy": 0.8531468531468531,
+      "val_macro_f1": 0.836197021764032,
+      "threshold": 0.4600000000000001,
+      "val_roc_auc": 0.8842710997442456,
+      "fit_seconds": 0.45
+    },
+    "gradient_boosting": {
+      "val_accuracy": 0.8461538461538461,
+      "val_macro_f1": 0.8256870567375887,
+      "threshold": 0.5200000000000001,
+      "val_roc_auc": 0.8776641091219095,
+      "fit_seconds": 0.52
+    },
+    "xgboost": {
+      "val_accuracy": 0.7972027972027972,
+      "val_macro_f1": 0.7834803947162324,
+      "threshold": 0.5700000000000002,
+      "val_roc_auc": 0.8610400682011936,
+      "fit_seconds": 0.23
+    }
+  },
+  "selected_model": "random_forest",
+  "decision_threshold": 0.4600000000000001,
+  "strategy": "pooled",
+  "strategy_rationale": "Each camera view expresses form quality through a different set of features (measured: side favours body_line_deviation |d|=1.09, diagonal favours elbow_velocity |d|=0.89, front favours hip_angle |d|=0.84, with no feature shared across all three top-5 lists). Pooling averages incompatible cues, so both strategies are measured on validation and the better-generalising one is selected.",
+  "strategy_comparison": {
+    "pooled_val_macro_f1": 0.836197021764032,
+    "per_view_val_macro_f1": 0.8129569246860825
+  },
+  "per_view_models": {
+    "front": {
+      "model": "gradient_boosting",
+      "threshold": 0.9300000000000002,
+      "val_macro_f1": 0.7420634920634921,
+      "val_roc_auc": 0.6722222222222223
+    },
+    "side": {
+      "model": "gradient_boosting",
+      "threshold": 0.05,
+      "val_macro_f1": 0.7413213885778276,
+      "val_roc_auc": 0.8043478260869565
+    },
+    "diagonal": {
+      "model": "logistic_regression",
+      "threshold": 0.6300000000000001,
+      "val_macro_f1": 0.9554858934169279,
+      "val_roc_auc": 0.9717948717948718
+    }
+  },
+  "per_view_feature_importance": {},
+  "test": {
+    "accuracy": 0.6829268292682927,
+    "macro_f1": 0.6189482112728417,
+    "roc_auc": 0.7353261947253619,
+    "precision_good": 0.6746987951807228,
+    "recall_good": 0.9105691056910569,
+    "f1_good": 0.7750865051903114,
+    "precision_bad": 0.717948717948718,
+    "recall_bad": 0.34146341463414637,
+    "f1_bad": 0.4628099173553719,
+    "confusion_matrix": [
+      [
+        112,
+        11
+      ],
+      [
+        54,
+        28
+      ]
+    ]
+  },
+  "per_view": {
+    "front": {
+      "accuracy": 0.6666666666666666,
+      "macro_f1": 0.6421180766889836,
+      "n_reps": 84
+    },
+    "side": {
+      "accuracy": 0.75,
+      "macro_f1": 0.7061323618700668,
+      "n_reps": 44
+    },
+    "diagonal": {
+      "accuracy": 0.6623376623376623,
+      "macro_f1": 0.48719262295081966,
+      "n_reps": 77
+    }
+  },
+  "per_subject": {
+    "010": {
+      "accuracy": 0.8611111111111112,
+      "n_reps": 72
+    },
+    "016": {
+      "accuracy": 0.5357142857142857,
+      "n_reps": 56
+    },
+    "023": {
+      "accuracy": 0.4444444444444444,
+      "n_reps": 45
+    },
+    "024": {
+      "accuracy": 0.875,
+      "n_reps": 32
+    }
+  },
+  "feature_importance": {
+    "elbow_velocity_down_mean": 0.0839654711680848,
+    "shoulder_hip_ankle_angle_deg_mean": 0.07380037321468808,
+    "hip_angle_deg_mean": 0.06638561637221732,
+    "rep_duration_s": 0.06001380915780141,
+    "elbow_velocity_up_mean": 0.05333328166212682,
+    "body_line_deviation_max_abs": 0.05050218933890301,
+    "body_line_deviation_mean": 0.04709925640495704,
+    "descent_duration_s": 0.04447656156665586,
+    "shoulder_elbow_height_delta_mean": 0.0428868571891393,
+    "shoulder_elbow_height_delta_min": 0.03694794382122388,
+    "elbow_angle_opposite_deg_mean": 0.03543604767639786,
+    "knee_angle_deg_mean": 0.034187063127764,
+    "shoulder_ankle_height_delta_mean": 0.034087928871126966,
+    "hip_angle_deg_min": 0.03395675711515442,
+    "shoulder_angle_deg_mean": 0.03383427524277836,
+    "pause_at_bottom_s": 0.03312394749569946,
+    "ascent_duration_s": 0.026632350484201824,
+    "elbow_angle_deg_mean": 0.026610559218069277,
+    "body_line_deviation_std": 0.024864521825113124,
+    "elbow_angular_velocity_max": 0.020500744671055986,
+    "elbow_angle_deg_max": 0.020179302087459192,
+    "rom_elbow_deg": 0.019890917814108264,
+    "elbow_angle_std": 0.01931524547430058,
+    "body_line_deviation_range": 0.018376516214422354,
+    "min_elbow_angle_deg": 0.017474762869898804,
+    "elbow_angle_deg_min": 0.016458846845438455,
+    "descent_ascent_ratio": 0.013674281088528207,
+    "elbow_angular_velocity_mean": 0.008732158675621533,
+    "depth_ratio": 0.003252413307063666,
+    "torso_slope_deg_mean": 0.0,
+    "hip_height_std": 0.0,
+    "hip_vertical_velocity_max": 0.0,
+    "shoulder_vertical_velocity_max": 0.0,
+    "jitter_score": 0.0
+  },
+  "train_feature_means": [
+    123.58949482252393,
+    67.92650090684371,
+    169.2405120903243,
+    58.80137266551254,
+    148.10699086113848,
+    113.97674869107301,
+    143.90400917039815,
+    0.0035426053487587726,
+    0.44962771382569117,
+    0.16754812560648197,
+    150.5159628085386,
+    8.038844667548699e-17,
+    0.035326615767845,
+    -3.3002111038392794,
+    -0.4366953526795408,
+    101.31401126372165,
+    67.92650090684371,
+    0.9610804690470386,
+    472.8366666099937,
+    -1.2824244119655765,
+    -128.17271726705488,
+    129.4490230942443,
+    2.2005858157347293,
+    1.0520210533758039,
+    0.6258933816517593,
+    1.8139854605736863,
+    35.01084609274705,
+    0.0,
+    0.0,
+    6.185513533137464e-15,
+    0.27639135603116977,
+    0.0,
+    0.6440470500968671,
+    128.6078947231514
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "model_type": "GradientBoostingClassifier",
+  "feature_spec_version": 1,
+  "feature_names": [
+    "elbow_angle_deg_mean",
+    "elbow_angle_deg_min",
+    "elbow_angle_deg_max",
+    "shoulder_angle_deg_mean",
+    "hip_angle_deg_mean",
+    "hip_angle_deg_min",
+    "knee_angle_deg_mean",
+    "body_line_deviation_mean",
+    "body_line_deviation_max_abs",
+    "body_line_deviation_std",
+    "shoulder_hip_ankle_angle_deg_mean",
+    "torso_slope_deg_mean",
+    "shoulder_ankle_height_delta_mean",
+    "shoulder_elbow_height_delta_min",
+    "shoulder_elbow_height_delta_mean",
+    "rom_elbow_deg",
+    "min_elbow_angle_deg",
+    "depth_ratio",
+    "elbow_angular_velocity_max",
+    "elbow_angular_velocity_mean",
+    "elbow_velocity_down_mean",
+    "elbow_velocity_up_mean",
+    "rep_duration_s",
+    "descent_duration_s",
+    "ascent_duration_s",
+    "descent_ascent_ratio",
+    "elbow_angle_std",
+    "hip_height_std",
+    "hip_vertical_velocity_max",
+    "shoulder_vertical_velocity_max",
+    "pause_at_bottom_s",
+    "jitter_score",
+    "body_line_deviation_range",
+    "elbow_angle_opposite_deg_mean"
+  ],
+  "n_features": 34,
+  "n_features_contract": 37,
+  "excluded_capture_features": [
+    "jitter_max",
+    "jitter_mean",
+    "jitter_std",
+    "low_confidence_ratio",
+    "mean_visibility",
+    "min_visibility",
+    "tracking_gap_ratio"
+  ],
+  "decision_threshold": 0.5800000000000002,
+  "positive_class": 0,
+  "positive_class_meaning": "P(good form)",
+  "trained_at": "2026-09-20T18:32:00Z",
+  "exported_at": "2026-09-20T18:33:51Z",
+  "train_feature_means": [
+    123.58949488956605,
+    67.92650090684371,
+    169.2405120903243,
+    58.80137264791398,
+    148.10699085443426,
+    113.97674869107301,
+    143.9040091502855,
+    0.0035426051976387954,
+    0.44962771382569117,
+    0.16754812608441905,
+    150.51596286049627,
+    8.038844810524469e-17,
+    0.03532661561646928,
+    -3.3002111038392794,
+    -0.43669535268731546,
+    101.31401106259526,
+    67.92650090684371,
+    0.9610804685232719,
+    472.82479627773506,
+    -1.5943074473990078,
+    -126.77836109758051,
+    127.32667602847457,
+    6.372817810159995,
+    1.5093145982897553,
+    0.6258933922842224,
+    2.5330267180615023,
+    35.01084608436678,
+    0.0,
+    0.0,
+    6.153838640244052e-15,
+    0.27639133870758786,
+    0.0,
+    0.6440470503587505,
+    128.6078948170104
+  ],
+  "metrics": {
+    "accuracy": 0.6878048780487804,
+    "macro_f1": 0.6719999999999999,
+    "roc_auc": 0.7017152488598056,
+    "precision_good": 0.7322834645669292,
+    "recall_good": 0.7560975609756098,
+    "f1_good": 0.744,
+    "precision_bad": 0.6153846153846154,
+    "recall_bad": 0.5853658536585366,
+    "f1_bad": 0.6,
+    "confusion_matrix": [
+      [
+        93,
+        30
+      ],
+      [
+        34,
+        48
+      ]
+    ]
+  },
+  "training_split": {
+    "total_reps": 917,
+    "train_reps": 569,
+    "validation_reps": 143,
+    "test_reps": 205,
+    "train_subjects": [
+      "001",
+      "002",
+      "004",
+      "005",
+      "006",
+      "008",
+      "009",
+      "011",
+      "012",
+      "013",
+      "015",
+      "017",
+      "018",
+      "020",
+      "021",
+      "022"
+    ],
+    "validation_subjects": [
+      "003",
+      "007",
+      "014",
+      "019"
+    ],
+    "test_subjects": [
+      "010",
+      "016",
+      "023",
+      "024"
+    ],
+    "split_strategy": "subject-independent, sha256-hash-banded"
+  },
+  "per_view": {
+    "front": {
+      "accuracy": 0.6309523809523809,
+      "macro_f1": 0.6283716283716283,
+      "n_reps": 84
+    },
+    "side": {
+      "accuracy": 0.6590909090909091,
+      "macro_f1": 0.6264855687606112,
+      "n_reps": 44
+    },
+    "diagonal": {
+      "accuracy": 0.7662337662337663,
+      "macro_f1": 0.7386877828054299,
+      "n_reps": 77
+    }
+  },
+  "candidates": {
+    "logistic_regression": {
+      "val_accuracy": 0.7762237762237763,
+      "val_macro_f1": 0.7636363636363637,
+      "threshold": 0.5600000000000002,
+      "val_roc_auc": 0.8101023017902812,
+      "fit_seconds": 0.01
+    },
+    "random_forest": {
+      "val_accuracy": 0.7902097902097902,
+      "val_macro_f1": 0.7798645320197044,
+      "threshold": 0.5200000000000001,
+      "val_roc_auc": 0.8599744245524297,
+      "fit_seconds": 0.46
+    },
+    "gradient_boosting": {
+      "val_accuracy": 0.8321678321678322,
+      "val_macro_f1": 0.8186813186813187,
+      "threshold": 0.5800000000000002,
+      "val_roc_auc": 0.8621057118499573,
+      "fit_seconds": 0.54
+    },
+    "xgboost": {
+      "val_accuracy": 0.8041958041958042,
+      "val_macro_f1": 0.7931818181818182,
+      "threshold": 0.5700000000000002,
+      "val_roc_auc": 0.8548593350383632,
+      "fit_seconds": 0.22
+    }
+  }
+}

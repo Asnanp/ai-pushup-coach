@@ -1,0 +1,29 @@
+# AI Push-Up Coach — API dependencies
+#
+# Install with the project interpreter (do NOT create a new venv):
+#   "C:\Users\USER\anaconda3\envs\pushup\Scripts\python.exe" -m pip install -r apps/api/requirements.txt
+#
+# Already present in the `pushup` env: numpy 1.26.4, scikit-learn 1.5.2,
+# pytest 9.1.1. The web stack below is installed into that same env:
+#   fastapi 0.141.1, starlette 1.6.0, pydantic 2.13.5,
+#   pydantic-settings 2.15.0, uvicorn 0.53.0, httpx 0.28.1
+#
+# numpy/scipy/scikit-learn are deliberately NOT upgraded: a previous numpy
+# upgrade in a shared environment broke scipy and sklearn.
+#
+# scikit-learn is not imported by the service at runtime — the GBM is scored by
+# direct tree traversal (see app/services/model_service.py). It is listed
+# because ml/src/features.py, which this service wraps, requires numpy and
+# because parity checks against the fitted estimator use it.
+
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+python-dotenv>=1.0,<2.0
+httpx>=0.27,<1.0
+
+numpy>=1.26,<3.0
+scikit-learn>=1.4,<2.0
+
+pytest>=8.0

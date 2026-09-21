@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+next-env.d.ts
+
+# Compiled workspace packages (regenerate with `npm run build:packages`)
+packages/*/dist/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local environment — never commit keys
+.env
+.env.local
+.env*.local
+
+# MediaPipe runtime assets (~28 MB).
+#
+# Regenerate with `npm run fetch:pose-assets`. They are ignored rather than
+# committed because they are third-party binaries that would bloat every clone
+# and every diff. The app still works without them: POSE_ASSET_SOURCES falls
+# through to the CDN. It just needs the network, which is what serving them
+# locally exists to avoid.
+apps/web/public/mediapipe/wasm/
+apps/web/public/models/pose_landmarker_full.task
+
+# Model artifacts are small JSON and ARE committed — they are the trained
+# output and cannot be regenerated without the dataset and a full ML pipeline
+# run. Only the vendored MediaPipe binaries above are excluded.
+
+# Scratch / probes
+.probe/

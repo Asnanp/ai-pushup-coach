@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply bg-base text-ink antialiased;
+  }
+
+  body {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Focus rings: visible and consistent. Accessibility is a requirement, and
+     a keyboard user at the demo booth must be able to see where they are. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
+  }
+
+  /* Tabular numerals everywhere a metric updates, so digits do not jitter
+     horizontally as values change. This matters a lot for the rep counter. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* ---- Surfaces ---- */
+
+  .card {
+    @apply rounded-card border border-base-border bg-base-raised;
+  }
+
+  .card-pad {
+    @apply card p-4;
+  }
+
+  /* ---- Labels ---- */
+
+  .metric-label {
+    @apply text-label uppercase text-ink-muted;
+  }
+
+  .metric-value {
+    @apply tabular text-metric text-ink;
+  }
+
+  /* ---- Buttons ----
+     Note: the primary button is NOT accent-green. The accent is reserved for
+     success/valid states so that when a user sees green they know it means
+     "this rep was good". A green Start button would dilute that meaning. */
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-control px-4 py-2.5
+           text-sm font-medium transition-colors disabled:cursor-not-allowed
+           disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn bg-ink text-base hover:bg-white;
+  }
+
+  .btn-secondary {
+    @apply btn border border-base-border bg-base-raised text-ink hover:bg-base-hover;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white hover:bg-danger-dim;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-muted hover:bg-base-hover hover:text-ink;
+  }
+
+  /* ---- Status chips ----
+     Every chip pairs colour with an icon or text, never colour alone. */
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-chip border px-2 py-1
+           text-xs font-medium;
+  }
+
+  .chip-good {
+    @apply chip border-accent-deep bg-accent-wash text-accent;
+  }
+
+  .chip-bad {
+    @apply chip border-danger-dim bg-danger-wash text-danger;
+  }
+
+  .chip-neutral {
+    @apply chip border-base-border bg-base text-ink-muted;
+  }
+
+  /* ---- Progress bar ---- */
+
+  .meter {
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-base-border;
+  }
+
+  .meter-fill {
+    @apply h-full rounded-full bg-accent transition-[width] duration-300;
+  }
+
+  .meter-fill-warn {
+    @apply h-full rounded-full bg-warn transition-[width] duration-300;
+  }
+}
+
+@layer utilities {
+  /* Respect users who ask for reduced motion. The app's only continuous
+     animation is the LIVE pulse, which is decorative. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Scrollbar styling — keeps the dark theme coherent in Chromium. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1117;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2a35;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3846;
+}

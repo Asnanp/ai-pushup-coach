@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "strategy": "subject-independent, sha256-hash-banded",
+  "dataset_root": "C:\\Users\\USER\\Downloads\\Dataset Exercise Quality-wise\\Dataset Exercise Quality-wise\\push_up",
+  "total_videos": 144,
+  "total_subjects": 24,
+  "all_subjects": [
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "007",
+    "008",
+    "009",
+    "010",
+    "011",
+    "012",
+    "013",
+    "014",
+    "015",
+    "016",
+    "017",
+    "018",
+    "019",
+    "020",
+    "021",
+    "022",
+    "023",
+    "024"
+  ],
+  "splits": {
+    "train": {
+      "subjects": [
+        "001",
+        "002",
+        "004",
+        "005",
+        "006",
+        "008",
+        "009",
+        "011",
+        "012",
+        "013",
+        "015",
+        "017",
+        "018",
+        "020",
+        "021",
+        "022"
+      ],
+      "n_subjects": 16,
+      "n_videos": 96,
+      "n_good": 48,
+      "n_bad": 48,
+      "views": {
+        "diagonal": 32,
+        "front": 32,
+        "side": 32
+      }
+    },
+    "validation": {
+      "subjects": [
+        "003",
+        "007",
+        "014",
+        "019"
+      ],
+      "n_subjects": 4,
+      "n_videos": 24,
+      "n_good": 12,
+      "n_bad": 12,
+      "views": {
+        "diagonal": 8,
+        "front": 8,
+        "side": 8
+      }
+    },
+    "test": {
+      "subjects": [
+        "010",
+        "016",
+        "023",
+        "024"
+      ],
+      "n_subjects": 4,
+      "n_videos": 24,
+      "n_good": 12,
+      "n_bad": 12,
+      "views": {
+        "diagonal": 8,
+        "front": 8,
+        "side": 8
+      }
+    }
+  },
+  "fractions": {
+    "train": 0.667,
+    "validation": 0.167,
+    "test": 0.166
+  }
+}

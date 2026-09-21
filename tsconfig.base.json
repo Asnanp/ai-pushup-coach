@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": false,
+    "incremental": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ai-pushup-coach/types": ["./packages/types/src/index.ts"],
+      "@ai-pushup-coach/pose": ["./packages/pose/src/index.ts"],
+      "@ai-pushup-coach/biomechanics": ["./packages/biomechanics/src/index.ts"],
+      "@ai-pushup-coach/rep-counter": ["./packages/rep-counter/src/index.ts"],
+      "@ai-pushup-coach/form-engine": ["./packages/form-engine/src/index.ts"],
+      "@mediapipe/tasks-vision": [
+        "./apps/web/node_modules/@mediapipe/tasks-vision"
+      ]
+    }
+  }
+}

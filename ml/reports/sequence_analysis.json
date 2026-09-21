@@ -1,0 +1,795 @@
+{
+  "generated_at": "2026-09-21T04:28:42Z",
+  "script": "ml/scripts/build_sequences.py",
+  "agent": "17 \u2014 TEMPORAL MODELING ENGINEER",
+  "purpose": "Materialise variable-length per-rep joint-angle sequences and honestly test whether a sequence model beats the window-aggregated feature vector used by the shipped classifier.",
+  "protocol": {
+    "selection": "fit on TRAIN only, tune decision threshold on VALIDATION only",
+    "reporting": "TEST evaluated once, after refitting on TRAIN+VALID",
+    "test_train_only_fit": "also reported: TRAIN-only fit scored on TEST with the validation threshold, as a robustness check on the refit number",
+    "baseline_model": "GradientBoostingClassifier over 34 aggregated motion features",
+    "no_deep_learning": "numpy/scipy/sklearn only, as required",
+    "threshold_search": "0.05..0.95 step 0.01, maximising validation macro-F1"
+  },
+  "split": {
+    "strategy": "subject-independent, sha256-hash-banded",
+    "source": "ml/data/splits/dataset_split.json",
+    "train_subjects": [
+      "001",
+      "002",
+      "004",
+      "005",
+      "006",
+      "008",
+      "009",
+      "011",
+      "012",
+      "013",
+      "015",
+      "017",
+      "018",
+      "020",
+      "021",
+      "022"
+    ],
+    "validation_subjects": [
+      "003",
+      "007",
+      "014",
+      "019"
+    ],
+    "test_subjects": [
+      "010",
+      "016",
+      "023",
+      "024"
+    ],
+    "train_reps": 569,
+    "validation_reps": 143,
+    "test_reps": 205,
+    "leakage_check": "train/val/test subject sets asserted pairwise disjoint"
+  },
+  "sequences": {
+    "channels": [
+      "elbow_angle",
+      "elbow_angle_opposite",
+      "shoulder_angle",
+      "hip_angle",
+      "knee_angle",
+      "ankle_angle",
+      "body_line_deviation",
+      "shoulder_hip_ankle_angle",
+      "torso_slope"
+    ],
+    "n_reps": 917,
+    "n_frames_total": 29865,
+    "length_frames": {
+      "min": 13,
+      "p25": 23,
+      "median": 29,
+      "p75": 38,
+      "max": 90,
+      "mean": 32.56815703380589
+    },
+    "duration_s": {
+      "median": 1.8666666746139526,
+      "p95": 4.333333587646484
+    },
+    "variable_length": true,
+    "padding_used": false,
+    "resample_k": 24,
+    "encoding": "Each variable-length sequence is phase-normalised (frame index mapped to [0,1]) and resampled onto K evenly spaced points per channel, then summarised by slope/mean-abs-step/std-step/curvature/argmin-phase/argmax-phase. Resampling, not padding, is used because padding to the longest rep injects a synthetic end-of-rep boundary whose position encodes rep length.",
+    "nan_handling": "Invalid/dropped pose frames inside a rep window are linearly interpolated per channel, matching rep_segmenter.smooth_signal's NaN handling. A channel with no finite sample in the window stays NaN and is filled from TRAIN statistics by the reused impute() helper.",
+    "clip_stats": {
+      "clips_read": 144,
+      "untracked_clips_skipped": 0,
+      "reps_with_interpolated_frames": 103,
+      "reps_with_a_dead_channel": 0
+    },
+    "time_base_note": "Rep duration is read from the clip's frame_times, the same time base the rep counter used. rep_meta's duration column is not used: it is derived from window-relative timestamps that are re-based per rep during extraction and therefore accumulate across a clip."
+  },
+  "feature_blocks": {
+    "agg": {
+      "n_features": 34,
+      "names": [
+        "elbow_angle_deg_mean",
+        "elbow_angle_deg_min",
+        "elbow_angle_deg_max",
+        "shoulder_angle_deg_mean",
+        "hip_angle_deg_mean",
+        "hip_angle_deg_min",
+        "knee_angle_deg_mean",
+        "body_line_deviation_mean",
+        "body_line_deviation_max_abs",
+        "body_line_deviation_std",
+        "shoulder_hip_ankle_angle_deg_mean",
+        "torso_slope_deg_mean",
+        "shoulder_ankle_height_delta_mean",
+        "shoulder_elbow_height_delta_min",
+        "shoulder_elbow_height_delta_mean",
+        "rom_elbow_deg",
+        "min_elbow_angle_deg",
+        "depth_ratio",
+        "elbow_angular_velocity_max",
+        "elbow_angular_velocity_mean",
+        "elbow_velocity_down_mean",
+        "elbow_velocity_up_mean",
+        "rep_duration_s",
+        "descent_duration_s",
+        "ascent_duration_s",
+        "descent_ascent_ratio",
+        "elbow_angle_std",
+        "hip_height_std",
+        "hip_vertical_velocity_max",
+        "shoulder_vertical_velocity_max",
+        "pause_at_bottom_s",
+        "jitter_score",
+        "body_line_deviation_range",
+        "elbow_angle_opposite_deg_mean"
+      ]
+    },
+    "resampled": {
+      "n_features": 216,
+      "names": [
+        "elbow_angle__phase00",
+        "elbow_angle__phase01",
+        "elbow_angle__phase02",
+        "elbow_angle__phase03",
+        "elbow_angle__phase04",
+        "elbow_angle__phase05",
+        "elbow_angle__phase06",
+        "elbow_angle__phase07",
+        "elbow_angle__phase08",
+        "elbow_angle__phase09",
+        "elbow_angle__phase10",
+        "elbow_angle__phase11",
+        "elbow_angle__phase12",
+        "elbow_angle__phase13",
+        "elbow_angle__phase14",
+        "elbow_angle__phase15",
+        "elbow_angle__phase16",
+        "elbow_angle__phase17",
+        "elbow_angle__phase18",
+        "elbow_angle__phase19",
+        "elbow_angle__phase20",
+        "elbow_angle__phase21",
+        "elbow_angle__phase22",
+        "elbow_angle__phase23",
+        "elbow_angle_opposite__phase00",
+        "elbow_angle_opposite__phase01",
+        "elbow_angle_opposite__phase02",
+        "elbow_angle_opposite__phase03",
+        "elbow_angle_opposite__phase04",
+        "elbow_angle_opposite__phase05",
+        "elbow_angle_opposite__phase06",
+        "elbow_angle_opposite__phase07",
+        "elbow_angle_opposite__phase08",
+        "elbow_angle_opposite__phase09",
+        "elbow_angle_opposite__phase10",
+        "elbow_angle_opposite__phase11",
+        "elbow_angle_opposite__phase12",
+        "elbow_angle_opposite__phase13",
+        "elbow_angle_opposite__phase14",
+        "elbow_angle_opposite__phase15",
+        "elbow_angle_opposite__phase16",
+        "elbow_angle_opposite__phase17",
+        "elbow_angle_opposite__phase18",
+        "elbow_angle_opposite__phase19",
+        "elbow_angle_opposite__phase20",
+        "elbow_angle_opposite__phase21",
+        "elbow_angle_opposite__phase22",
+        "elbow_angle_opposite__phase23",
+        "shoulder_angle__phase00",
+        "shoulder_angle__phase01",
+        "shoulder_angle__phase02",
+        "shoulder_angle__phase03",
+        "shoulder_angle__phase04",
+        "shoulder_angle__phase05",
+        "shoulder_angle__phase06",
+        "shoulder_angle__phase07",
+        "shoulder_angle__phase08",
+        "shoulder_angle__phase09",
+        "shoulder_angle__phase10",
+        "shoulder_angle__phase11",
+        "shoulder_angle__phase12",
+        "shoulder_angle__phase13",
+        "shoulder_angle__phase14",
+        "shoulder_angle__phase15",
+        "shoulder_angle__phase16",
+        "shoulder_angle__phase17",
+        "shoulder_angle__phase18",
+        "shoulder_angle__phase19",
+        "shoulder_angle__phase20",
+        "shoulder_angle__phase21",
+        "shoulder_angle__phase22",
+        "shoulder_angle__phase23",
+        "hip_angle__phase00",
+        "hip_angle__phase01",
+        "hip_angle__phase02",
+        "hip_angle__phase03",
+        "hip_angle__phase04",
+        "hip_angle__phase05",
+        "hip_angle__phase06",
+        "hip_angle__phase07",
+        "hip_angle__phase08",
+        "hip_angle__phase09",
+        "hip_angle__phase10",
+        "hip_angle__phase11",
+        "hip_angle__phase12",
+        "hip_angle__phase13",
+        "hip_angle__phase14",
+        "hip_angle__phase15",
+        "hip_angle__phase16",
+        "hip_angle__phase17",
+        "hip_angle__phase18",
+        "hip_angle__phase19",
+        "hip_angle__phase20",
+        "hip_angle__phase21",
+        "hip_angle__phase22",
+        "hip_angle__phase23",
+        "knee_angle__phase00",
+        "knee_angle__phase01",
+        "knee_angle__phase02",
+        "knee_angle__phase03",
+        "knee_angle__phase04",
+        "knee_angle__phase05",
+        "knee_angle__phase06",
+        "knee_angle__phase07",
+        "knee_angle__phase08",
+        "knee_angle__phase09",
+        "knee_angle__phase10",
+        "knee_angle__phase11",
+        "knee_angle__phase12",
+        "knee_angle__phase13",
+        "knee_angle__phase14",
+        "knee_angle__phase15",
+        "knee_angle__phase16",
+        "knee_angle__phase17",
+        "knee_angle__phase18",
+        "knee_angle__phase19",
+        "knee_angle__phase20",
+        "knee_angle__phase21",
+        "knee_angle__phase22",
+        "knee_angle__phase23",
+        "ankle_angle__phase00",
+        "ankle_angle__phase01",
+        "ankle_angle__phase02",
+        "ankle_angle__phase03",
+        "ankle_angle__phase04",
+        "ankle_angle__phase05",
+        "ankle_angle__phase06",
+        "ankle_angle__phase07",
+        "ankle_angle__phase08",
+        "ankle_angle__phase09",
+        "ankle_angle__phase10",
+        "ankle_angle__phase11",
+        "ankle_angle__phase12",
+        "ankle_angle__phase13",
+        "ankle_angle__phase14",
+        "ankle_angle__phase15",
+        "ankle_angle__phase16",
+        "ankle_angle__phase17",
+        "ankle_angle__phase18",
+        "ankle_angle__phase19",
+        "ankle_angle__phase20",
+        "ankle_angle__phase21",
+        "ankle_angle__phase22",
+        "ankle_angle__phase23",
+        "body_line_deviation__phase00",
+        "body_line_deviation__phase01",
+        "body_line_deviation__phase02",
+        "body_line_deviation__phase03",
+        "body_line_deviation__phase04",
+        "body_line_deviation__phase05",
+        "body_line_deviation__phase06",
+        "body_line_deviation__phase07",
+        "body_line_deviation__phase08",
+        "body_line_deviation__phase09",
+        "body_line_deviation__phase10",
+        "body_line_deviation__phase11",
+        "body_line_deviation__phase12",
+        "body_line_deviation__phase13",
+        "body_line_deviation__phase14",
+        "body_line_deviation__phase15",
+        "body_line_deviation__phase16",
+        "body_line_deviation__phase17",
+        "body_line_deviation__phase18",
+        "body_line_deviation__phase19",
+        "body_line_deviation__phase20",
+        "body_line_deviation__phase21",
+        "body_line_deviation__phase22",
+        "body_line_deviation__phase23",
+        "shoulder_hip_ankle_angle__phase00",
+        "shoulder_hip_ankle_angle__phase01",
+        "shoulder_hip_ankle_angle__phase02",
+        "shoulder_hip_ankle_angle__phase03",
+        "shoulder_hip_ankle_angle__phase04",
+        "shoulder_hip_ankle_angle__phase05",
+        "shoulder_hip_ankle_angle__phase06",
+        "shoulder_hip_ankle_angle__phase07",
+        "shoulder_hip_ankle_angle__phase08",
+        "shoulder_hip_ankle_angle__phase09",
+        "shoulder_hip_ankle_angle__phase10",
+        "shoulder_hip_ankle_angle__phase11",
+        "shoulder_hip_ankle_angle__phase12",
+        "shoulder_hip_ankle_angle__phase13",
+        "shoulder_hip_ankle_angle__phase14",
+        "shoulder_hip_ankle_angle__phase15",
+        "shoulder_hip_ankle_angle__phase16",
+        "shoulder_hip_ankle_angle__phase17",
+        "shoulder_hip_ankle_angle__phase18",
+        "shoulder_hip_ankle_angle__phase19",
+        "shoulder_hip_ankle_angle__phase20",
+        "shoulder_hip_ankle_angle__phase21",
+        "shoulder_hip_ankle_angle__phase22",
+        "shoulder_hip_ankle_angle__phase23",
+        "torso_slope__phase00",
+        "torso_slope__phase01",
+        "torso_slope__phase02",
+        "torso_slope__phase03",
+        "torso_slope__phase04",
+        "torso_slope__phase05",
+        "torso_slope__phase06",
+        "torso_slope__phase07",
+        "torso_slope__phase08",
+        "torso_slope__phase09",
+        "torso_slope__phase10",
+        "torso_slope__phase11",
+        "torso_slope__phase12",
+        "torso_slope__phase13",
+        "torso_slope__phase14",
+        "torso_slope__phase15",
+        "torso_slope__phase16",
+        "torso_slope__phase17",
+        "torso_slope__phase18",
+        "torso_slope__phase19",
+        "torso_slope__phase20",
+        "torso_slope__phase21",
+        "torso_slope__phase22",
+        "torso_slope__phase23"
+      ]
+    },
+    "stats": {
+      "n_features": 54,
+      "names": [
+        "elbow_angle__slope",
+        "elbow_angle__mean_abs_step",
+        "elbow_angle__std_step",
+        "elbow_angle__curvature",
+        "elbow_angle__argmin_phase",
+        "elbow_angle__argmax_phase",
+        "elbow_angle_opposite__slope",
+        "elbow_angle_opposite__mean_abs_step",
+        "elbow_angle_opposite__std_step",
+        "elbow_angle_opposite__curvature",
+        "elbow_angle_opposite__argmin_phase",
+        "elbow_angle_opposite__argmax_phase",
+        "shoulder_angle__slope",
+        "shoulder_angle__mean_abs_step",
+        "shoulder_angle__std_step",
+        "shoulder_angle__curvature",
+        "shoulder_angle__argmin_phase",
+        "shoulder_angle__argmax_phase",
+        "hip_angle__slope",
+        "hip_angle__mean_abs_step",
+        "hip_angle__std_step",
+        "hip_angle__curvature",
+        "hip_angle__argmin_phase",
+        "hip_angle__argmax_phase",
+        "knee_angle__slope",
+        "knee_angle__mean_abs_step",
+        "knee_angle__std_step",
+        "knee_angle__curvature",
+        "knee_angle__argmin_phase",
+        "knee_angle__argmax_phase",
+        "ankle_angle__slope",
+        "ankle_angle__mean_abs_step",
+        "ankle_angle__std_step",
+        "ankle_angle__curvature",
+        "ankle_angle__argmin_phase",
+        "ankle_angle__argmax_phase",
+        "body_line_deviation__slope",
+        "body_line_deviation__mean_abs_step",
+        "body_line_deviation__std_step",
+        "body_line_deviation__curvature",
+        "body_line_deviation__argmin_phase",
+        "body_line_deviation__argmax_phase",
+        "shoulder_hip_ankle_angle__slope",
+        "shoulder_hip_ankle_angle__mean_abs_step",
+        "shoulder_hip_ankle_angle__std_step",
+        "shoulder_hip_ankle_angle__curvature",
+        "shoulder_hip_ankle_angle__argmin_phase",
+        "shoulder_hip_ankle_angle__argmax_phase",
+        "torso_slope__slope",
+        "torso_slope__mean_abs_step",
+        "torso_slope__std_step",
+        "torso_slope__curvature",
+        "torso_slope__argmin_phase",
+        "torso_slope__argmax_phase"
+      ]
+    },
+    "extras": {
+      "n_features": 2,
+      "names": [
+        "window_frames",
+        "rep_duration_s"
+      ]
+    }
+  },
+  "class_separation_train": {
+    "method": "absolute Cohen's d between good and bad reps, computed on TRAIN only",
+    "aggregated": {
+      "n_features": 34,
+      "n_medium_or_large": 2,
+      "max_abs_d": 0.6229148636863687,
+      "top": [
+        {
+          "feature": "hip_angle_deg_mean",
+          "cohens_d": 0.6229148636863687
+        },
+        {
+          "feature": "elbow_velocity_down_mean",
+          "cohens_d": 0.526797202146054
+        },
+        {
+          "feature": "elbow_velocity_up_mean",
+          "cohens_d": 0.4854841582661591
+        },
+        {
+          "feature": "rep_duration_s",
+          "cohens_d": 0.4383624073177651
+        },
+        {
+          "feature": "shoulder_hip_ankle_angle_deg_mean",
+          "cohens_d": 0.4119645026084571
+        },
+        {
+          "feature": "descent_duration_s",
+          "cohens_d": 0.3997641652694297
+        },
+        {
+          "feature": "hip_angle_deg_min",
+          "cohens_d": 0.3030406328698299
+        },
+        {
+          "feature": "depth_ratio",
+          "cohens_d": 0.2903626789963275
+        },
+        {
+          "feature": "shoulder_ankle_height_delta_mean",
+          "cohens_d": 0.2754634654735083
+        },
+        {
+          "feature": "elbow_angle_opposite_deg_mean",
+          "cohens_d": 0.26034281243183804
+        }
+      ]
+    },
+    "sequence": {
+      "n_features": 270,
+      "n_medium_or_large": 17,
+      "max_abs_d": 0.6298118832719217,
+      "top": [
+        {
+          "feature": "hip_angle__phase18",
+          "cohens_d": 0.6298118832719217
+        },
+        {
+          "feature": "hip_angle__phase17",
+          "cohens_d": 0.6056684855065722
+        },
+        {
+          "feature": "hip_angle__phase07",
+          "cohens_d": 0.6046793484254261
+        },
+        {
+          "feature": "hip_angle__phase19",
+          "cohens_d": 0.6026513372870174
+        },
+        {
+          "feature": "hip_angle__phase20",
+          "cohens_d": 0.5776636693089604
+        },
+        {
+          "feature": "hip_angle__phase16",
+          "cohens_d": 0.5689877779847617
+        },
+        {
+          "feature": "hip_angle__phase09",
+          "cohens_d": 0.5593585745118982
+        },
+        {
+          "feature": "hip_angle__phase06",
+          "cohens_d": 0.5477079576622349
+        },
+        {
+          "feature": "shoulder_hip_ankle_angle__phase00",
+          "cohens_d": 0.5452805800910264
+        },
+        {
+          "feature": "hip_angle__phase10",
+          "cohens_d": 0.5392497872811506
+        }
+      ]
+    }
+  },
+  "results": {
+    "agg_gbc_34": {
+      "family": "baseline",
+      "blocks": [
+        "agg"
+      ],
+      "n_features": 34,
+      "threshold": 0.5200000000000001,
+      "train_macro_f1_diagnostic": 0.9943224338698251,
+      "validation": {
+        "accuracy": 0.8461538461538461,
+        "macro_f1": 0.8256870567375887,
+        "roc_auc": 0.8776641091219095
+      },
+      "test": {
+        "accuracy": 0.7073170731707317,
+        "macro_f1": 0.6788847117794486,
+        "roc_auc": 0.7219413047789014
+      },
+      "test_train_only_fit": {
+        "accuracy": 0.6682926829268293,
+        "macro_f1": 0.6360693400167085,
+        "roc_auc": 0.7220404521118381
+      }
+    },
+    "seq_stats_gbc": {
+      "family": "sequence",
+      "blocks": [
+        "stats"
+      ],
+      "n_features": 54,
+      "threshold": 0.6600000000000001,
+      "train_macro_f1_diagnostic": 0.9790526678648046,
+      "validation": {
+        "accuracy": 0.7342657342657343,
+        "macro_f1": 0.6840697674418605,
+        "roc_auc": 0.7197357203751066
+      },
+      "test": {
+        "accuracy": 0.5414634146341464,
+        "macro_f1": 0.5242445190598459,
+        "roc_auc": 0.5932480666270078
+      },
+      "test_train_only_fit": {
+        "accuracy": 0.5414634146341464,
+        "macro_f1": 0.5112114448051948,
+        "roc_auc": 0.550912155463018
+      }
+    },
+    "seq_resampled_gbc": {
+      "family": "sequence",
+      "blocks": [
+        "resampled"
+      ],
+      "n_features": 216,
+      "threshold": 0.5300000000000001,
+      "train_macro_f1_diagnostic": 1.0,
+      "validation": {
+        "accuracy": 0.6923076923076923,
+        "macro_f1": 0.6809330628803245,
+        "roc_auc": 0.7374254049445865
+      },
+      "test": {
+        "accuracy": 0.6487804878048781,
+        "macro_f1": 0.6009085009733939,
+        "roc_auc": 0.7555522506444576
+      },
+      "test_train_only_fit": {
+        "accuracy": 0.6292682926829268,
+        "macro_f1": 0.5819021039072563,
+        "roc_auc": 0.6852567915923062
+      }
+    },
+    "seq_combined_gbc": {
+      "family": "sequence",
+      "blocks": [
+        "resampled",
+        "stats",
+        "extras"
+      ],
+      "n_features": 272,
+      "threshold": 0.7300000000000002,
+      "train_macro_f1_diagnostic": 1.0,
+      "validation": {
+        "accuracy": 0.7132867132867133,
+        "macro_f1": 0.7086708074534162,
+        "roc_auc": 0.7781329923273658
+      },
+      "test": {
+        "accuracy": 0.6780487804878049,
+        "macro_f1": 0.6617500000000001,
+        "roc_auc": 0.7633848899464605
+      },
+      "test_train_only_fit": {
+        "accuracy": 0.6731707317073171,
+        "macro_f1": 0.6639262032347255,
+        "roc_auc": 0.7173805274638112
+      }
+    },
+    "seq_combined_logreg": {
+      "family": "sequence",
+      "blocks": [
+        "resampled",
+        "stats",
+        "extras"
+      ],
+      "n_features": 272,
+      "threshold": 0.5900000000000002,
+      "train_macro_f1_diagnostic": 0.9626875459028434,
+      "validation": {
+        "accuracy": 0.6293706293706294,
+        "macro_f1": 0.6012102078400421,
+        "roc_auc": 0.608695652173913
+      },
+      "test": {
+        "accuracy": 0.5560975609756098,
+        "macro_f1": 0.5403021118257313,
+        "roc_auc": 0.5877949633154869
+      },
+      "test_train_only_fit": {
+        "accuracy": 0.5902439024390244,
+        "macro_f1": 0.5504385964912281,
+        "roc_auc": 0.5446162998215348
+      }
+    },
+    "augmented_gbc": {
+      "family": "augmented",
+      "blocks": [
+        "agg",
+        "resampled",
+        "stats",
+        "extras"
+      ],
+      "n_features": 306,
+      "threshold": 0.33,
+      "train_macro_f1_diagnostic": 1.0,
+      "validation": {
+        "accuracy": 0.8041958041958042,
+        "macro_f1": 0.7702020202020201,
+        "roc_auc": 0.8339727195225916
+      },
+      "test": {
+        "accuracy": 0.6390243902439025,
+        "macro_f1": 0.5171250318309142,
+        "roc_auc": 0.7831152092008724
+      },
+      "test_train_only_fit": {
+        "accuracy": 0.6536585365853659,
+        "macro_f1": 0.5663120884359822,
+        "roc_auc": 0.7876759865159627
+      }
+    }
+  },
+  "headline": {
+    "baseline_model": "agg_gbc_34",
+    "best_sequence_model": "seq_combined_gbc",
+    "augmented_model": "augmented_gbc",
+    "baseline_val_macro_f1": 0.8256870567375887,
+    "baseline_test_macro_f1": 0.6788847117794486,
+    "baseline_test_accuracy": 0.7073170731707317,
+    "best_sequence_val_macro_f1": 0.7086708074534162,
+    "best_sequence_test_macro_f1": 0.6617500000000001,
+    "best_sequence_test_accuracy": 0.6780487804878049,
+    "sequence_val_macro_f1_delta": -0.11701624928417254,
+    "sequence_test_macro_f1_delta": -0.017134711779448586,
+    "augmented_val_macro_f1_delta": -0.05548503653556858,
+    "augmented_test_macro_f1_delta": -0.16175967994853446,
+    "best_sequence_train_macro_f1_diagnostic": 1.0,
+    "best_sequence_overfit_gap_train_minus_val": 0.29132919254658385,
+    "significance_tolerance_macro_f1": 0.02,
+    "tolerance_rationale": "Validation contains 4 subjects and test 4 subjects. A macro-F1 difference below 0.02 is within subject-level noise at this n and is not treated as a real effect."
+  },
+  "subject_level": {
+    "validation": {
+      "n_subjects": 4,
+      "mean_subject_accuracy_baseline": 0.8230753621378621,
+      "mean_subject_accuracy_best_sequence": 0.6328749375624375,
+      "mean_subject_accuracy_augmented": 0.7578138007825508,
+      "mean_subject_accuracy_delta_seq_minus_base": -0.19020042457542463,
+      "per_subject": {
+        "003": {
+          "n_reps": 64,
+          "baseline_accuracy": 0.84375,
+          "sequence_accuracy": 0.78125,
+          "augmented_accuracy": 0.828125,
+          "delta_seq_minus_base": -0.0625
+        },
+        "007": {
+          "n_reps": 39,
+          "baseline_accuracy": 0.7948717948717948,
+          "sequence_accuracy": 0.8974358974358975,
+          "augmented_accuracy": 0.6923076923076923,
+          "delta_seq_minus_base": 0.10256410256410264
+        },
+        "014": {
+          "n_reps": 33,
+          "baseline_accuracy": 0.9393939393939394,
+          "sequence_accuracy": 0.42424242424242425,
+          "augmented_accuracy": 0.9393939393939394,
+          "delta_seq_minus_base": -0.5151515151515151
+        },
+        "019": {
+          "n_reps": 7,
+          "baseline_accuracy": 0.7142857142857143,
+          "sequence_accuracy": 0.42857142857142855,
+          "augmented_accuracy": 0.5714285714285714,
+          "delta_seq_minus_base": -0.28571428571428575
+        }
+      },
+      "sequence_vs_baseline_win_tie_loss": {
+        "win": 1,
+        "tie": 0,
+        "loss": 3
+      }
+    },
+    "test": {
+      "n_subjects": 4,
+      "mean_subject_accuracy_baseline": 0.6980406746031746,
+      "mean_subject_accuracy_best_sequence": 0.6701884920634921,
+      "mean_subject_accuracy_augmented": 0.6428571428571428,
+      "mean_subject_accuracy_delta_seq_minus_base": -0.02785218253968258,
+      "per_subject": {
+        "010": {
+          "n_reps": 72,
+          "baseline_accuracy": 0.8611111111111112,
+          "sequence_accuracy": 0.875,
+          "augmented_accuracy": 0.8055555555555556,
+          "delta_seq_minus_base": 0.01388888888888884
+        },
+        "016": {
+          "n_reps": 56,
+          "baseline_accuracy": 0.6428571428571429,
+          "sequence_accuracy": 0.48214285714285715,
+          "augmented_accuracy": 0.44642857142857145,
+          "delta_seq_minus_base": -0.16071428571428575
+        },
+        "023": {
+          "n_reps": 45,
+          "baseline_accuracy": 0.4444444444444444,
+          "sequence_accuracy": 0.5111111111111111,
+          "augmented_accuracy": 0.4444444444444444,
+          "delta_seq_minus_base": 0.06666666666666665
+        },
+        "024": {
+          "n_reps": 32,
+          "baseline_accuracy": 0.84375,
+          "sequence_accuracy": 0.8125,
+          "augmented_accuracy": 0.875,
+          "delta_seq_minus_base": -0.03125
+        }
+      },
+      "sequence_vs_baseline_win_tie_loss": {
+        "win": 2,
+        "tie": 0,
+        "loss": 2
+      }
+    }
+  },
+  "conclusion": {
+    "verdict": "NO",
+    "recommendation": "Do not replace the window-aggregated model with a sequence model. On this dataset the temporal representation does not improve validation macro-F1 and does not generalise better to unseen subjects. The shipped design (aggregate each rep window into a 34-feature vector) is the right call at this dataset size; the sequences are materialised here for completeness and for future work, not because they improve the model.",
+    "temporal_beats_aggregated_on_validation": false,
+    "temporal_beats_aggregated_on_test": false,
+    "augmented_beats_aggregated_on_validation": false,
+    "augmented_beats_aggregated_on_test": false,
+    "explanation": "Baseline agg_gbc_34 (34 aggregated motion features): val macro-F1 0.826, test macro-F1 0.679 (test accuracy 0.707). This reproduces the shipped model (ml/reports/metrics.json: test macro-F1 0.672, accuracy 0.688) under the identical protocol, so the comparison is like-for-like. Best sequence-only model seq_combined_gbc (272 phase-resampled + shape features): val 0.709 (-0.117), test 0.662 (-0.017). Adding sequence features on top of the aggregated vector (augmented_gbc, 306 features) is worse on both splits: val 0.770 (-0.055), test 0.517 (-0.162).",
+    "evidence": [
+      "Overfitting: the best sequence model reaches training macro-F1 1.000 while validation macro-F1 is 0.709 (gap 0.291). With 569 training reps from 16 subjects, 272 sequence features let gradient boosting memorise the training subjects instead of learning form. The aggregated baseline shows the same train/val gap but starts from 34 features, so it loses less to it.",
+      "Redundancy: the aggregated vector is not 'temporally blind'. It already carries elbow angular velocity (mean/max), down/up velocity, ROM, rep and phase durations, pause duration and stability statistics \u2014 all derived from the same per-frame signals the sequences are built from. The extra shape detail mostly adds parameters, not information.",
+      "Separation is not better: the strongest sequence feature separates the classes by |d|=0.630 versus 0.623 for the strongest aggregated feature. The larger count of sequence features above |d|=0.5 is an artefact of resampling: adjacent phase points of one channel (hip_angle) are near-duplicates, not independent evidence.",
+      "Subject sensitivity: on validation the sequence model collapses on a single subject (014: baseline 0.909 -> sequence 0.424), which is exactly the per-subject failure mode documented in ml/scripts/diagnose_generalisation.py. Validation subject-level score is 1 win / 3 losses against the baseline.",
+      "Test is inconclusive on its own: the pooled test macro-F1 difference is -0.017, inside the 0.02 noise band, and the sequence model wins on 3 of 4 test subjects \u2014 but by tiny margins, while losing 0.125 accuracy on subject 016. With 4 test subjects this is not enough to claim an improvement. Validation, which is the split used for model selection, is unambiguous and favours the baseline."
+    ]
+  },
+  "caveats": [
+    "Validation and test each contain only 4 subjects, so the subject level analysis has very low statistical power. The pooled numbers are the more stable statistic; the per-subject table is reported because that is where generalisation failures appear.",
+    "Only one sequence encoding family was tested: phase-normalised resampling plus shape statistics over 9 joint-angle channels, consumed by sklearn gradient boosting and logistic regression. A different encoding (e.g. per-phase alignment to the elbow-angle minimum) could behave differently. No deep-learning dependency was added, per the task constraints, so an RNN/TCN was not attempted; with 16 training subjects it would be expected to overfit harder than the models tested here, not less.",
+    "rep_meta's duration column was found to accumulate across reps in a clip (a 2.13 s window reported as 7.47 s by the 6th rep). Sequence duration is therefore taken from frame_times. This does not affect the aggregated baseline, which was reproduced unchanged from the shipped pipeline."
+  ]
+}
