@@ -12,26 +12,21 @@ import Link from 'next/link';
 export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-      {/* Hero Section: Asymmetric Editorial Split */}
+      {/* Hero Section: Asymmetric Editorial Split (Inspired by reference design) */}
       <section className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-end">
-        {/* Left Column (7 cols): Massive confident headline */}
+        {/* Left Column: Massive confident headline */}
         <div className="lg:col-span-7">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-base-border bg-base-raised px-3 py-1 text-xs text-ink-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-            <span>On-device computer vision · No registration</span>
-          </div>
-
-          <h1 className="text-5xl font-extrabold tracking-tight text-ink sm:text-7xl lg:text-8xl leading-[0.98]">
+          <h1 className="text-6xl font-extrabold tracking-[-0.04em] text-ink sm:text-7xl lg:text-8xl leading-[0.94]">
             Minimalism<br />
             in motion.
           </h1>
 
           <p className="mt-6 font-mono text-xs uppercase tracking-widest text-ink-faint">
-            // Biomechanical Analysis &amp; Rep Counting
+            // BIOMECHANICAL ANALYSIS &amp; REP COUNTING
           </p>
         </div>
 
-        {/* Right Column (5 cols): Description + Pill CTA */}
+        {/* Right Column: Description + Pill CTA */}
         <div className="flex flex-col items-start gap-6 lg:col-span-5 lg:pb-3">
           <p className="text-base leading-relaxed text-ink-muted sm:text-lg">
             Real-time push-up coaching running directly in your browser.
@@ -52,6 +47,82 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 rounded-full border border-base-border bg-base-raised px-6 py-3 text-xs font-semibold uppercase tracking-wider text-ink transition-all hover:border-ink"
             >
               <span>30s Challenge</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Visual Exhibition Frame (Directly mirroring the device showcase in the reference design) */}
+      <section className="mt-16 overflow-hidden rounded-2xl border border-base-border bg-base-raised shadow-[0_4px_24px_rgba(0,0,0,0.02)] sm:mt-20">
+        <div className="flex items-center justify-between border-b border-base-border px-6 py-3.5 bg-base-sunken/40">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-ink/20" />
+            <span className="h-2 w-2 rounded-full bg-ink/20" />
+            <span className="h-2 w-2 rounded-full bg-ink/20" />
+            <span className="ml-2 font-mono text-[11px] uppercase tracking-wider text-ink-muted">
+              STUDIO TELEMETRY // REAL-TIME POSE ENGINE
+            </span>
+          </div>
+          <div className="font-mono text-[11px] text-ink-faint">
+            60 FPS · 0MS LATENCY
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-10">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-base-border bg-base p-4 sm:p-5">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+                ELBOW EXTENSION
+              </span>
+              <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+                162°
+              </div>
+              <span className="mt-1 block text-xs text-ink-muted">Top lockout validated</span>
+            </div>
+
+            <div className="rounded-xl border border-base-border bg-base p-4 sm:p-5">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+                CHEST DEPTH
+              </span>
+              <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+                92°
+              </div>
+              <span className="mt-1 block text-xs text-ink-muted">Full depth achieved</span>
+            </div>
+
+            <div className="rounded-xl border border-base-border bg-base p-4 sm:p-5">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+                CADENCE
+              </span>
+              <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+                2.1s
+              </div>
+              <span className="mt-1 block text-xs text-ink-muted">Controlled tempo</span>
+            </div>
+
+            <div className="rounded-xl border border-base-border bg-base p-4 sm:p-5">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ink-faint">
+                FORM SCORE
+              </span>
+              <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-emerald-600 sm:text-3xl">
+                96%
+              </div>
+              <span className="mt-1 block text-xs text-ink-muted">Spine &amp; hip aligned</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-xl border border-base-border bg-base p-4 sm:flex-row sm:px-5">
+            <div className="flex items-center gap-3">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <p className="text-xs text-ink-muted">
+                Vision engine auto-calibrates for front, diagonal, and side camera angles.
+              </p>
+            </div>
+            <Link
+              href="/workout"
+              className="text-xs font-semibold uppercase tracking-wider text-ink hover:underline"
+            >
+              Open Camera Studio →
             </Link>
           </div>
         </div>
