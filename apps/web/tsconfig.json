@@ -19,6 +19,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
@@ -45,6 +46,9 @@
       ],
       "@ai-pushup-coach/coach-engine": [
         "../../packages/coach-engine/src/index.ts"
+      ],
+      "@mediapipe/tasks-vision": [
+        "./node_modules/@mediapipe/tasks-vision/vision.d.ts"
       ]
     }
   },
@@ -55,6 +59,8 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "lib/__tests__",
+    "**/*.test.ts"
   ]
 }

@@ -4,7 +4,13 @@
     "composite": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@mediapipe/tasks-vision": [
+        "../../apps/web/node_modules/@mediapipe/tasks-vision/vision.d.ts"
+      ]
+    }
   },
   "include": [
     "src/**/*.ts"
