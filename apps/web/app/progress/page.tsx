@@ -29,6 +29,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import clsx from 'clsx';
 import {
   Area,
   AreaChart,
@@ -60,13 +61,15 @@ import { issueLabel } from '@ai-pushup-coach/form-engine';
 // ---------------------------------------------------------------------------
 
 /** base-border */
-const GRID_STROKE = '#1E2A35';
+const GRID_STROKE = '#1C2733';
 /** ink-muted — axis ticks and non-semantic series */
 const AXIS_TICK = '#8A99A8';
-/** accent — reserved for valid / success meaning */
-const ACCENT = '#7DD87D';
+/** accent — cyber emerald */
+const ACCENT = '#00F090';
 /** danger — invalid reps */
-const DANGER = '#E5484D';
+const DANGER = '#FF3B5C';
+/** cyan — secondary telemetry */
+const CYAN = '#00E5FF';
 
 const AXIS_PROPS = {
   stroke: 'transparent',
@@ -506,13 +509,21 @@ function Tile({
   value: string;
   tone?: 'good' | 'bad';
 }) {
+  const borderTone =
+    tone === 'good'
+      ? 'border-accent/30 bg-accent/[0.04] shadow-glow-sm'
+      : tone === 'bad'
+        ? 'border-danger/30 bg-danger/[0.04]'
+        : 'border-base-border/80 bg-base-raised/80';
+
   return (
-    <div className="card p-4">
-      <div className="metric-label">{label}</div>
+    <div className={clsx('card p-4 transition-all duration-200', borderTone)}>
+      <div className="metric-label text-[10px] sm:text-label truncate">{label}</div>
       <div
-        className={`mt-1.5 tabular text-metricSm font-bold ${
-          tone === 'good' ? 'text-accent' : tone === 'bad' ? 'text-danger' : 'text-ink'
-        }`}
+        className={clsx(
+          'mt-1.5 tabular font-display text-metricSm font-black',
+          tone === 'good' ? 'text-accent' : tone === 'bad' ? 'text-danger' : 'text-ink',
+        )}
       >
         {value}
       </div>

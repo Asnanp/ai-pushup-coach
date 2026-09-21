@@ -291,20 +291,26 @@ export default function WorkoutPage() {
 
           {phase === 'idle' && !error && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button className="btn-primary" onClick={handleStart}>
+              <button
+                className="btn-primary py-2.5 px-6 font-display text-base font-extrabold uppercase tracking-wider shadow-glow hover:scale-[1.02] active:scale-[0.98]"
+                onClick={handleStart}
+              >
                 <PlayIcon />
                 Start Workout
               </button>
               <ViewSelector value={userViewMode} onChange={handleViewChange} />
               <VoiceSelector value={voiceMode} onChange={handleVoiceChange} />
               <button
-                className={clsx('btn-secondary text-xs', showDebug && 'bg-base-hover border-accent text-accent')}
+                className={clsx(
+                  'btn-secondary text-xs font-mono uppercase tracking-wider',
+                  showDebug && 'bg-base-hover border-accent text-accent shadow-glow-sm',
+                )}
                 onClick={() => setShowDebug((d) => !d)}
               >
                 {showDebug ? 'Hide Debug' : 'Debug'}
               </button>
               {modelAvailable === false && (
-                <span className="chip-neutral">
+                <span className="chip-neutral font-mono text-[11px]">
                   Rule-based scoring (model not loaded)
                 </span>
               )}
@@ -316,19 +322,19 @@ export default function WorkoutPage() {
             (phase === 'calibrating' ||
               (countdown === 0 && (snapshot?.elapsedSeconds ?? 0) < 1.1)) && (
             <div
-              className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-card bg-base/65 backdrop-blur-sm animate-fade-in"
+              className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-card bg-base/70 backdrop-blur-md animate-fade-in"
               role="status"
               aria-live="assertive"
             >
               <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-accent bg-base-raised/95 shadow-glow">
-                <span className="font-mono text-7xl font-black text-accent animate-pulse">
+                <span className="font-display text-7xl font-black text-accent animate-pulse">
                   {countdown > 0 ? countdown : 'GO!'}
                 </span>
               </div>
-              <p className="mt-5 text-xl font-bold tracking-wide text-ink">
+              <p className="mt-5 font-display text-2xl font-black uppercase tracking-wider text-ink">
                 {countdown > 0 ? 'Get into push-up position...' : 'Begin Push-Ups!'}
               </p>
-              <p className="mt-1 text-xs font-medium text-accent">
+              <p className="mt-1 font-mono text-xs font-semibold text-accent uppercase tracking-wide">
                 Hands-free automatic countdown
               </p>
             </div>
@@ -349,32 +355,41 @@ export default function WorkoutPage() {
 
           {phase === 'active' && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="chip-neutral">
-                <span className="font-mono text-[11px]">
-                  elbow{' '}
+              <span className="chip-cyan">
+                <span className="font-mono text-[11px] font-bold">
+                  ELBOW{' '}
                   {snapshot && Number.isFinite(snapshot.liveElbowAngle)
                     ? `${formatInt(snapshot.liveElbowAngle)}°`
                     : '--'}
                 </span>
               </span>
-              <span className="chip-neutral">
-                state {snapshot?.repState ?? '--'}
+              <span className="chip-good">
+                <span className="font-mono text-[11px] font-bold">
+                  STATE {snapshot?.repState ?? '--'}
+                </span>
               </span>
               <span className="chip-neutral">
-                cycle {snapshot ? formatPercent(snapshot.cycleProgress * 100, 0) : '--'}
+                <span className="font-mono text-[11px]">
+                  CYCLE {snapshot ? formatPercent(snapshot.cycleProgress * 100, 0) : '--'}
+                </span>
               </span>
-              <span className="chip-neutral text-xs">
-                view {snapshot?.detectedV2View?.replace('VIEW_', '') ?? userViewMode}
+              <span className="chip-neutral">
+                <span className="font-mono text-[11px]">
+                  VIEW {snapshot?.detectedV2View?.replace('VIEW_', '') ?? userViewMode}
+                </span>
               </span>
               <button
-                className={clsx('chip-neutral hover:bg-base-hover cursor-pointer text-xs', showDebug && 'text-accent border-accent')}
+                className={clsx(
+                  'chip-neutral hover:bg-base-hover cursor-pointer text-xs font-mono',
+                  showDebug && 'text-accent border-accent shadow-glow-sm',
+                )}
                 onClick={() => setShowDebug((d) => !d)}
               >
-                {showDebug ? 'Hide Debug' : 'Debug'}
+                {showDebug ? 'HIDE DEBUG' : 'DEBUG'}
               </button>
               <div className="flex-1" />
-              <p className="text-xs text-ink-faint">
-                Frames processed locally · not stored
+              <p className="text-[11px] font-mono text-ink-faint">
+                ON-DEVICE WASM · ZERO CLOUD LATENCY
               </p>
             </div>
           )}
@@ -388,15 +403,23 @@ export default function WorkoutPage() {
         {/* ---------------- RIGHT: metrics ---------------- */}
         <section aria-label="Workout metrics" className="flex flex-col gap-4">
           {/* Timer + end */}
-          <div className="card flex items-center gap-4 p-4">
+          <div className="card flex items-center gap-4 p-4 border border-base-border/90 bg-gradient-to-r from-base-raised to-base-raised/70">
             <TimerIcon active={phase === 'active'} />
             <div className="flex-1">
-              <div className="metric-label">Workout time</div>
-              <div className="tabular text-metricSm font-bold text-ink">
+              <div className="flex items-center gap-2">
+                <div className="metric-label">Workout time</div>
+                {phase === 'active' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold text-accent font-mono">
+                    <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" />
+                    LIVE
+                  </span>
+                )}
+              </div>
+              <div className="tabular text-metricSm font-display font-black text-ink">
                 {formatClock(snapshot?.elapsedSeconds)}
               </div>
               {phase === 'paused' && (
-                <div className="mt-1 text-xs text-warn">
+                <div className="mt-1 text-xs text-warn font-medium">
                   Paused —{' '}
                   {snapshot?.pausedReason === 'pose-lost'
                     ? 'pose lost, counting stopped'
@@ -450,21 +473,21 @@ export default function WorkoutPage() {
           </p>
 
           {/* Form score */}
-          <div className="card p-4">
+          <div className="card p-5 border border-base-border/90 bg-gradient-to-b from-base-raised to-base-raised/80">
             <div className="flex items-start justify-between">
               <div>
-                <div className="metric-label">Form score</div>
+                <div className="metric-label">Technique Quality Score</div>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="tabular text-metric font-bold tracking-tight text-ink">
+                  <span className="tabular font-display text-metric font-black tracking-tight text-accent">
                     {formatInt(metrics?.formScore)}
                   </span>
-                  <span className="text-lg text-ink-faint">/ 100</span>
+                  <span className="text-lg font-mono text-ink-faint">/ 100</span>
                 </div>
                 {metrics?.scoreStatus === 'provisional' && (
-                  <div className="mt-1 text-xs text-warn">Provisional — under 3 reps</div>
+                  <div className="mt-1 text-xs text-warn font-semibold">Provisional — under 3 reps</div>
                 )}
                 {metrics?.scoreStatus === 'insufficient-data' && (
-                  <div className="mt-1 text-xs text-ink-faint">Complete a rep to score</div>
+                  <div className="mt-1 text-xs text-ink-faint font-medium">Complete a rep to score</div>
                 )}
               </div>
               <ScoreBadge score={metrics?.formScore ?? null} />
@@ -643,20 +666,29 @@ function TipPanel({ issue }: { issue: IssueCode | null }) {
 
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null || !Number.isFinite(score)) {
-    return <span className="text-xs text-ink-faint">--</span>;
+    return <span className="text-xs text-ink-faint font-mono font-medium">--</span>;
   }
   const good = score >= 75;
   const mid = score >= 55 && score < 75;
   return (
-    <div className="flex items-center gap-3">
-      <BarsIcon value={score} />
-      <div className="text-right">
-        <div className={clsx('text-sm font-medium', good ? 'text-accent' : mid ? 'text-warn' : 'text-danger')}>
-          {good ? 'Good form' : mid ? 'Needs work' : 'Poor form'}
-        </div>
-        <div className="text-xs text-ink-faint">
-          {good ? 'Keep it consistent.' : 'Check the breakdown.'}
-        </div>
+    <div className="flex flex-col items-end gap-1.5">
+      <span
+        className={clsx(
+          'rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider border',
+          good
+            ? 'border-accent/40 bg-accent/15 text-accent shadow-glow-sm'
+            : mid
+              ? 'border-warn/40 bg-warn/15 text-warn'
+              : 'border-danger/40 bg-danger/15 text-danger',
+        )}
+      >
+        {good ? 'ELITE FORM' : mid ? 'SOLID DEPTH' : 'NEEDS WORK'}
+      </span>
+      <div className="flex items-center gap-2">
+        <BarsIcon value={score} />
+        <span className="text-[11px] font-medium text-ink-muted">
+          {good ? 'Optimal alignment' : 'Review angle advice'}
+        </span>
       </div>
     </div>
   );
@@ -671,8 +703,8 @@ function BarsIcon({ value }: { value: number }) {
         return (
           <span
             key={i}
-            className={clsx('w-[4px] rounded-sm', on ? 'bg-accent' : 'bg-base-border')}
-            style={{ height: `${10 + i * 6}px` }}
+            className={clsx('w-[4px] rounded-sm transition-colors', on ? 'bg-accent shadow-glow-sm' : 'bg-base-border')}
+            style={{ height: `${10 + i * 5}px` }}
           />
         );
       })}
@@ -695,7 +727,7 @@ function ViewSelector({
   ];
   return (
     <div
-      className="flex items-center gap-1 rounded-control border border-base-border bg-base-raised p-1"
+      className="flex items-center gap-1 rounded-control border border-base-border/90 bg-base-sunken/80 p-1 backdrop-blur"
       role="radiogroup"
       aria-label="Camera angle"
     >
@@ -706,10 +738,10 @@ function ViewSelector({
           aria-checked={value === o.v}
           onClick={() => onChange(o.v)}
           className={clsx(
-            'rounded-chip px-3 py-1.5 text-xs font-medium transition-colors',
+            'rounded-chip px-3 py-1.5 text-xs font-mono font-medium transition-all duration-150 cursor-pointer',
             value === o.v
-              ? 'bg-base-hover text-ink font-semibold'
-              : 'text-ink-muted hover:text-ink',
+              ? 'bg-accent/20 text-accent font-bold border border-accent/40 shadow-sm'
+              : 'text-ink-muted hover:text-ink hover:bg-base-hover/50',
           )}
         >
           {o.label}
@@ -733,7 +765,7 @@ function VoiceSelector({
   ];
   return (
     <div
-      className="flex items-center gap-1 rounded-control border border-base-border bg-base-raised p-1"
+      className="flex items-center gap-1 rounded-control border border-base-border/90 bg-base-sunken/80 p-1 backdrop-blur"
       role="radiogroup"
       aria-label="Voice coach mode"
     >
@@ -744,10 +776,10 @@ function VoiceSelector({
           aria-checked={value === o.v}
           onClick={() => onChange(o.v)}
           className={clsx(
-            'rounded-chip px-2.5 py-1.5 text-xs font-medium transition-colors',
+            'rounded-chip px-2.5 py-1.5 text-xs font-mono font-medium transition-all duration-150 cursor-pointer',
             value === o.v
-              ? 'bg-base-hover text-ink font-semibold'
-              : 'text-ink-muted hover:text-ink',
+              ? 'bg-cyan/20 text-cyan font-bold border border-cyan/40 shadow-sm'
+              : 'text-ink-muted hover:text-ink hover:bg-base-hover/50',
           )}
         >
           {o.label}
@@ -793,34 +825,45 @@ function SessionResult({
   const [selectedRep, setSelectedRep] = useState<WorkoutRepRecord | null>(null);
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-10">
+    <div className="mx-auto max-w-4xl px-5 py-8 sm:py-12">
       <div className="text-center">
-        <h1 className="text-display font-semibold text-ink">Workout Complete</h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          Your workout has been recorded locally. Duration: {formatClock(elapsedSeconds)}.
+        <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-accent/40 bg-accent/10 text-accent shadow-glow-sm">
+          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 className="mt-4 font-display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
+          Workout Complete
+        </h1>
+        <p className="mt-1 text-sm font-medium text-ink-muted">
+          Session recorded locally · Duration: <span className="font-mono text-ink font-bold">{formatClock(elapsedSeconds)}</span>
         </p>
       </div>
 
       {/* Overview Cards */}
-      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="card p-4 text-center">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+        <div className="card p-4 text-center border-base-border/90 bg-base-raised/90">
           <div className="metric-label">Total Reps</div>
-          <div className="text-metric font-bold text-ink">{metrics?.totalReps ?? 0}</div>
+          <div className="mt-1 font-display text-metric font-black text-ink">{metrics?.totalReps ?? 0}</div>
+          <div className="text-[10px] font-mono text-ink-faint">COUNTED</div>
         </div>
-        <div className="card p-4 text-center">
-          <div className="metric-label">Valid Reps</div>
-          <div className="text-metric font-bold text-accent">{metrics?.validReps ?? 0}</div>
+        <div className="card p-4 text-center border-accent/30 bg-accent/[0.04] shadow-glow-sm">
+          <div className="metric-label text-accent">Valid Reps</div>
+          <div className="mt-1 font-display text-metric font-black text-accent">{metrics?.validReps ?? 0}</div>
+          <div className="text-[10px] font-mono text-accent/80 font-bold">PASSED CRITERIA</div>
         </div>
-        <div className="card p-4 text-center">
-          <div className="metric-label">Invalid Reps</div>
-          <div className="text-metric font-bold text-danger">{metrics?.invalidReps ?? 0}</div>
+        <div className="card p-4 text-center border-danger/30 bg-danger/[0.04]">
+          <div className="metric-label text-danger">Invalid Reps</div>
+          <div className="mt-1 font-display text-metric font-black text-danger">{metrics?.invalidReps ?? 0}</div>
+          <div className="text-[10px] font-mono text-danger/80">FORM BREAKS</div>
         </div>
-        <div className="card p-4 text-center">
-          <div className="metric-label">Form Score</div>
-          <div className="text-metric font-bold text-ink">
+        <div className="card p-4 text-center border-base-border/90 bg-base-raised/90">
+          <div className="metric-label">Technique Score</div>
+          <div className="mt-1 font-display text-metric font-black text-ink">
             {metrics?.formScore !== null && Number.isFinite(metrics?.formScore) ? `${formatInt(metrics.formScore)}` : '--'}
-            <span className="text-sm font-normal text-ink-faint">/100</span>
+            <span className="text-sm font-mono font-normal text-ink-faint">/100</span>
           </div>
+          <div className="text-[10px] font-mono text-ink-muted">OVERALL QUALITY</div>
         </div>
       </div>
 
@@ -959,15 +1002,21 @@ function SessionResult({
       )}
 
       {/* Navigation actions */}
-      <div className="mt-8 flex justify-center gap-4">
-        <button className="btn-primary" onClick={onRestart}>
-          Start New Workout
+      <div className="mt-10 flex flex-wrap justify-center gap-3.5">
+        <button
+          className="btn-primary py-3 px-6 font-display text-base font-extrabold uppercase tracking-wider shadow-glow hover:scale-105"
+          onClick={onRestart}
+        >
+          Start Another Set
         </button>
-        <Link href="/challenge" className="btn-secondary">
-          Try Challenge Mode
+        <Link href="/progress" className="btn-secondary py-3 px-5 font-semibold">
+          View Progress & Trends
         </Link>
-        <Link href="/leaderboard" className="btn-secondary">
-          View Leaderboard
+        <Link href="/challenge" className="btn-secondary py-3 px-5 font-semibold">
+          30s Tournament Mode
+        </Link>
+        <Link href="/leaderboard" className="btn-ghost py-3 px-4 font-semibold text-ink-muted hover:text-ink">
+          Leaderboard
         </Link>
       </div>
     </div>

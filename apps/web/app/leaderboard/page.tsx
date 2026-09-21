@@ -190,44 +190,65 @@ export default function LeaderboardPage() {
                     {entries.map((entry, index) => {
                       const isOwn = ownIds.has(entry.id);
                       const name = sanitizeName(entry.displayName) || 'Anonymous';
+                      const rank = index + 1;
+                      const isPodium = rank <= 3;
+                      const rankBadge =
+                        rank === 1
+                          ? 'border-accent/50 bg-accent/20 text-accent font-black shadow-glow-sm'
+                          : rank === 2
+                            ? 'border-cyan/40 bg-cyan/15 text-cyan font-bold'
+                            : rank === 3
+                              ? 'border-warn/40 bg-warn/15 text-warn font-bold'
+                              : 'text-ink-muted';
+
                       return (
                         <tr
                           key={entry.id}
                           className={clsx(
-                            'border-b border-base-border/60 last:border-0',
-                            isOwn ? 'bg-base-hover/60' : 'hover:bg-base-hover/40',
+                            'border-b border-base-border/60 last:border-0 transition-colors',
+                            isOwn ? 'bg-accent/[0.05] border-accent/20' : 'hover:bg-base-hover/50',
                           )}
                         >
-                          <Td className={clsx('tabular', index === 0 ? 'font-semibold text-ink' : 'text-ink-muted')}>
-                            {index + 1}
+                          <Td className="tabular">
+                            {isPodium ? (
+                              <span className={clsx('inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-mono', rankBadge)}>
+                                {rank}
+                              </span>
+                            ) : (
+                              <span className="text-ink-muted font-mono">{rank}</span>
+                            )}
                           </Td>
                           <Td>
                             <span className="flex flex-wrap items-center gap-2">
-                              <span className={clsx('text-ink', isOwn && 'font-semibold')}>
+                              <span className={clsx('text-ink', isOwn && 'font-bold text-accent')}>
                                 {name}
                               </span>
-                              {isOwn && <span className="chip-neutral">Your run</span>}
+                              {isOwn && (
+                                <span className="chip-good text-[10px] py-0 px-1.5">
+                                  Your run
+                                </span>
+                              )}
                             </span>
                           </Td>
-                          <Td className="tabular text-right font-semibold text-accent">
+                          <Td className="tabular text-right font-display text-base font-black text-accent">
                             {formatInt(entry.validReps)}
                           </Td>
-                          <Td className="tabular text-right">{formatPercent(entry.formScore, 0)}</Td>
+                          <Td className="tabular text-right font-mono font-medium">{formatPercent(entry.formScore, 0)}</Td>
                           <Td
                             className={clsx(
-                              'tabular text-right',
-                              entry.invalidReps > 0 ? 'text-danger' : 'text-ink-muted',
+                              'tabular text-right font-mono',
+                              entry.invalidReps > 0 ? 'text-danger font-semibold' : 'text-ink-muted',
                             )}
                           >
                             {formatInt(entry.invalidReps)}
                           </Td>
-                          <Td className="tabular text-right text-ink-muted">
+                          <Td className="tabular text-right font-mono text-ink-muted">
                             {formatInt(entry.durationSeconds)}s
                           </Td>
-                          <Td className="tabular text-right text-ink-muted">
+                          <Td className="tabular text-right font-mono text-ink-muted">
                             {formatInt(entry.bestStreak)}
                           </Td>
-                          <Td className="whitespace-nowrap text-ink-muted">
+                          <Td className="whitespace-nowrap font-mono text-xs text-ink-muted">
                             <span title={formatDateTime(entry.createdAt)}>
                               {formatDateShort(entry.createdAt)}
                             </span>

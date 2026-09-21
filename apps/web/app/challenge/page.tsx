@@ -591,43 +591,46 @@ export default function ChallengePage() {
 
         <section aria-label="Challenge status" className="flex flex-col gap-4">
           {/* Big countdown — the defining element of this mode */}
-          <div className="card p-5 text-center">
-            <div className="metric-label">Time remaining</div>
+          <div className="card p-5 text-center border-base-border/90 bg-gradient-to-b from-base-raised to-base-sunken/90">
+            <div className="flex items-center justify-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-accent animate-pulse-dot" />
+              <div className="metric-label">Time remaining</div>
+            </div>
             <div
               className={clsx(
-                'tabular mt-2 font-bold tracking-tight',
-                remaining <= 5 && stage === 'running' ? 'text-danger' : 'text-ink',
+                'tabular mt-2 font-display font-black tracking-tight',
+                remaining <= 5 && stage === 'running' ? 'text-danger animate-pulse' : 'text-ink',
               )}
-              style={{ fontSize: '4rem', lineHeight: 1 }}
+              style={{ fontSize: '4.5rem', lineHeight: 1 }}
               aria-live="off"
             >
               {formatSeconds(stage === 'done' ? 0 : remaining, 1)}
             </div>
-            <div className="mt-2 text-xs text-ink-faint">seconds</div>
+            <div className="mt-1 font-mono text-xs text-ink-faint uppercase tracking-wider">seconds remaining</div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="card p-4">
-              <div className="metric-label">Valid reps</div>
-              <div className="tabular mt-1.5 text-metricSm font-bold text-accent">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="card p-4 border-accent/30 bg-accent/[0.04] shadow-glow-sm">
+              <div className="metric-label text-accent">Valid reps</div>
+              <div className="tabular mt-1 font-display text-metric font-black text-accent">
                 {formatInt(snapshot?.metrics.validReps ?? null)}
               </div>
             </div>
-            <div className="card p-4">
-              <div className="metric-label">Bad reps</div>
-              <div className="tabular mt-1.5 text-metricSm font-bold text-danger">
+            <div className="card p-4 border-danger/30 bg-danger/[0.04]">
+              <div className="metric-label text-danger">Bad reps</div>
+              <div className="tabular mt-1 font-display text-metric font-black text-danger">
                 {formatInt(snapshot?.metrics.invalidReps ?? null)}
               </div>
             </div>
           </div>
 
-          <div className="card p-4">
+          <div className="card p-4 border-base-border/90 bg-base-raised/90">
             <div className="metric-label">Form score</div>
-            <div className="mt-1.5 flex items-baseline gap-2">
-              <span className="tabular text-metricSm font-bold text-ink">
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="tabular font-display text-metric font-black text-ink">
                 {formatInt(snapshot?.metrics.formScore ?? null)}
               </span>
-              <span className="text-sm text-ink-faint">/ 100</span>
+              <span className="text-sm font-mono text-ink-faint">/ 100</span>
             </div>
             {snapshot?.metrics.scoreStatus === 'insufficient-data' && (
               <p className="mt-1 text-xs text-ink-faint">Complete a rep to score</p>

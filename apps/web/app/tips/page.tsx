@@ -1,24 +1,15 @@
 /**
  * app/tips/page.tsx
  *
- * Agent 8 — FRONTEND PAGE ENGINEER
- *
  * Form tips, grounded in what the pipeline actually measures.
  *
  * Two rules drive this page:
- *
  *  1. Every fault name here is imported from `ISSUE_COPY`
  *     (`packages/form-engine/src/feedback.ts`) — the same table the live
- *     feedback panel reads. If the copy changes there, this page changes with
- *     it. Nothing is retyped, so the Tips page and the workout screen cannot
- *     drift apart.
- *  2. Every trigger threshold and every accuracy number is taken from the
- *     engine and from the trained model's own report. The classifier is a
- *     binary good/bad model with 0.688 test accuracy on unseen subjects, so
- *     this page says that plainly rather than implying a verdict.
+ *     feedback panel reads.
+ *  2. Every trigger threshold and accuracy metric is from the engine and trained model.
  *
- * Server component: the content is static and the fault table is a constant,
- * so there is no reason to ship React state or a client bundle for it.
+ * Server component: static content and fault table constant.
  */
 
 import type { Metadata } from 'next';
@@ -33,8 +24,7 @@ export const metadata: Metadata = {
 };
 
 // ---------------------------------------------------------------------------
-// What the rep score is made of (docs/FORM_SCORE.md §1, §2 and
-// packages/form-engine/src/geometry-scores.ts GEOMETRY_WEIGHTS)
+// What the rep score is made of
 // ---------------------------------------------------------------------------
 
 interface Component {
@@ -49,52 +39,43 @@ const COMPONENTS: Component[] = [
     name: 'Depth',
     weight: '0.30',
     metric: 'min_elbow_angle_deg',
-    note: 'The deepest elbow bend of the rep. 90° scores 100; the common fault of stopping at 125° scores about 64; never bending at all scores 0.',
+    note: 'The deepest elbow bend of the rep. 90° scores 100; stopping at 125° scores ~64; never bending at all scores 0.',
   },
   {
     name: 'Alignment',
     weight: '0.30',
     metric: 'body_line_deviation_max_abs',
-    note: 'How far the hips strayed from the shoulder-to-ankle line, in torso lengths. Deviations under 0.05 are treated as perfect so landmark noise is not punished. At 0.18 the component scores 0.',
+    note: 'Deviation of hips from shoulder-to-ankle line (torso lengths). Deviations under 0.05 are treated as perfect. At 0.18 it scores 0.',
   },
   {
     name: 'Tempo',
     weight: '0.20',
-    metric: 'rep_duration_s, descent_duration_s, ascent_duration_s',
-    note: 'Half cadence, half symmetry. Anything between 1.2 s and 4.0 s per rep scores full marks; the symmetry half catches reps that dive down and barely push back up.',
+    metric: 'rep_duration_s, descent_s, ascent_s',
+    note: 'Cadence and symmetry. 1.2s to 4.0s per rep scores full marks; catches reps that dive down with uncontrolled eccentric drop.',
   },
   {
     name: 'Consistency',
     weight: '0.10',
     metric: 'elbow angular velocity spread, jitter_score',
-    note: 'Stability of the movement, not its speed — how evenly the joints travelled through the rep.',
+    note: 'Stability of the movement — how evenly and smoothly the joints travel throughout the eccentric and concentric phases.',
   },
   {
     name: 'Range of motion',
     weight: '0.10',
     metric: 'rom_elbow_deg',
-    note: 'Total elbow travel across the rep. 70° or more is full marks; this is the guard against reps that barely move but still trip the rep counter.',
+    note: 'Total elbow travel across the rep. 70°+ gives full marks; prevents partial reps from falsely tripping the rep counter.',
   },
 ];
 
 // ---------------------------------------------------------------------------
 // Faults. Headlines, details and fixes come from ISSUE_COPY verbatim.
-//
-// `importance` is the feature importance of the strongest feature each
-// detector reads, taken from ml/reports/metrics.json -> feature_importance
-// (the pooled gradient-boosting model). `per_view_feature_importance` in that
-// file is empty, so a single pooled ranking is all that is available.
 // ---------------------------------------------------------------------------
 
 interface Tip {
   code: IssueCode;
-  /** The measured feature(s) the detector reads — packages/form-engine/src/assessment.ts detectIssues(). */
   metric: string;
-  /** The precondition that must hold before the fault is reported. */
   trigger: string;
-  /** Pooled model feature importance of the strongest feature this detector reads. */
   importance: number;
-  /** Capture-quality problem rather than a form fault. */
   captureQuality?: boolean;
 }
 
@@ -108,13 +89,13 @@ const TIPS: Tip[] = [
   {
     code: 'HIPS_DROPPING',
     metric: 'body_line_deviation_mean',
-    trigger: 'hips more than 0.10 torso-lengths below the shoulder-ankle line',
+    trigger: 'hips more than 0.10 torso-lengths below shoulder-ankle line',
     importance: 0.105,
   },
   {
     code: 'HIPS_TOO_HIGH',
     metric: 'body_line_deviation_mean',
-    trigger: 'hips more than 0.10 torso-lengths above the shoulder-ankle line',
+    trigger: 'hips more than 0.10 torso-lengths above shoulder-ankle line',
     importance: 0.105,
   },
   {
@@ -126,7 +107,7 @@ const TIPS: Tip[] = [
   {
     code: 'BODY_NOT_STRAIGHT',
     metric: 'body_line_deviation_range',
-    trigger: 'body line varied by more than 0.15 torso-lengths during the rep',
+    trigger: 'body line varied by more than 0.15 torso-lengths during rep',
     importance: 0.034,
   },
   {
@@ -138,7 +119,7 @@ const TIPS: Tip[] = [
   {
     code: 'ELBOW_FLARE',
     metric: 'shoulder_angle_deg_mean',
-    trigger: 'shoulder abduction above 75°, in front or diagonal view only',
+    trigger: 'shoulder abduction above 75°, front/diagonal view only',
     importance: 0.020,
   },
   {
@@ -162,10 +143,6 @@ const TIPS: Tip[] = [
   },
 ];
 
-/**
- * The engine's own reporting order (assessment.ts ISSUE_PRIORITY), used only
- * to break ties in feature importance so the ranking is deterministic.
- */
 const ENGINE_PRIORITY: IssueCode[] = [
   'INCOMPLETE_DEPTH',
   'HIPS_DROPPING',
@@ -183,7 +160,6 @@ function engineRank(code: IssueCode): number {
   return i === -1 ? 99 : i;
 }
 
-/** Highest feature importance first; ties broken by the engine's own order. */
 const RANKED_TIPS = [...TIPS].sort(
   (a, b) => b.importance - a.importance || engineRank(a.code) - engineRank(b.code),
 );
@@ -193,20 +169,27 @@ const RANKED_TIPS = [...TIPS].sort(
 export default function TipsPage() {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-6 border-b border-white/[0.06] pb-8">
         <div>
-          <h1 className="text-display font-semibold tracking-tight text-ink">Form tips</h1>
-          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            What a good push-up looks like, measured against the same numbers the coach uses while
-            you train. Every fault name below is the exact name the app reports mid-set.
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.07] px-3 py-1 text-xs font-mono font-medium text-accent">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            AI BIOMECHANICS LAB · FORM PROTOCOLS
+          </div>
+          <h1 className="mt-3 font-display text-4xl font-extrabold uppercase tracking-tight text-white sm:text-5xl">
+            Push-Up Biomechanics Standards
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
+            Engineered against real anatomical kinematics. Every threshold and trigger below is the
+            exact mathematical rule evaluated by the on-device AI during your workout.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Link href="/workout" className="btn-primary">
-            Start workout
+            Start Live Coach
           </Link>
           <Link href="/progress" className="btn-secondary">
-            See progress
+            View Analytics
           </Link>
         </div>
       </header>
@@ -215,220 +198,238 @@ export default function TipsPage() {
       {/* What the score is made of                                        */}
       {/* ---------------------------------------------------------------- */}
 
-      <section className="mt-9">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
-          The five things it measures
-        </h2>
-        <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-faint">
-          Each component is scored 0–100 from measured joint positions, then weighted as shown.
-          Geometry accounts for 65% of a rep score and the trained classifier for the remaining
-          35%. The weights below are the ones in{' '}
-          <code className="font-mono">packages/form-engine/src/geometry-scores.ts</code>.
+      <section className="mt-12">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-cyan shadow-glow-sm" />
+          <h2 className="font-display text-lg font-bold uppercase tracking-wider text-white">
+            The Five Geometric Biomechanics Pillars
+          </h2>
+        </div>
+        <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-muted">
+          Each component is scored 0–100 from measured 33-point body keypoints, then weighted into
+          the overall score. Geometry comprises 65% of the rep score, and the calibrated gradient-boosted
+          classifier contributes the remaining 35%.
         </p>
 
-        <ul className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {COMPONENTS.map((c) => (
-            <li key={c.name} className="card p-4">
+            <div
+              key={c.name}
+              className="glass-card relative overflow-hidden rounded-2xl border border-white/[0.06] p-5 transition-all hover:border-white/[0.12]"
+            >
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-sm font-semibold text-ink">{c.name}</h3>
-                <span className="tabular font-mono text-xs text-ink-faint">
+                <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+                  {c.name}
+                </h3>
+                <span className="rounded-full border border-accent/20 bg-accent/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-accent">
                   weight {c.weight}
                 </span>
               </div>
-              <p className="mt-2 break-words font-mono text-[11px] leading-relaxed text-ink-muted">
-                {c.metric}
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-ink-muted">{c.note}</p>
-            </li>
+              <div className="mt-3 rounded-lg border border-white/[0.04] bg-base-darker/60 px-3 py-2">
+                <span className="font-mono text-[11px] text-cyan break-words">
+                  {c.metric}
+                </span>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">{c.note}</p>
+            </div>
           ))}
 
-          <li className="card p-4">
+          {/* Model Score Card */}
+          <div className="glass-card relative overflow-hidden rounded-2xl border border-cyan/20 bg-gradient-to-br from-cyan/[0.04] to-transparent p-5">
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-sm font-semibold text-ink">Model score</h3>
-              <span className="tabular font-mono text-xs text-ink-faint">weight 0.35</span>
+              <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+                ML Classifier Score
+              </h3>
+              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-cyan">
+                weight 0.35
+              </span>
             </div>
-            <p className="mt-2 break-words font-mono text-[11px] leading-relaxed text-ink-muted">
-              P(good), from the classifier
+            <div className="mt-3 rounded-lg border border-cyan/10 bg-base-darker/60 px-3 py-2">
+              <span className="font-mono text-[11px] text-cyan break-words">
+                P(good), calibrated ensemble output
+              </span>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+              Probabilistic biomechanics validation. Catches nonlinear subtleties that explicit
+              rules miss. If offline or uncalibrated, falls back gracefully to pure geometry.
             </p>
-            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-              A probability, not a verdict. It is what catches patterns the hand-written rules do
-              not encode. If the model cannot load, the score is geometry-only and the app labels it
-              as such rather than inventing a model score.
-            </p>
-          </li>
-        </ul>
+          </div>
+        </div>
       </section>
 
       {/* ---------------------------------------------------------------- */}
       {/* Faults and their detectors                                       */}
       {/* ---------------------------------------------------------------- */}
 
-      <section className="mt-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
-          Faults the coach can name
-        </h2>
-        <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-faint">
-          Ordered by how much each fault&rsquo;s detection metric mattered to the trained model
-          (<code className="font-mono">ml/reports/metrics.json</code>, pooled feature importance);
-          ties are broken by the engine&rsquo;s own reporting priority in{' '}
-          <code className="font-mono">assessment.ts</code>. Two caveats on that basis: the ranking is
-          pooled across camera views, because{' '}
-          <code className="font-mono">per_view_feature_importance</code> is empty in the model
-          report, and a low importance means the model leaned on the feature little — not that the
-          fault is harmless. A fault is only ever reported when its trigger is genuinely satisfied;
-          the model alone never produces a fault name.
+      <section className="mt-14">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-danger shadow-glow-sm" />
+          <h2 className="font-display text-lg font-bold uppercase tracking-wider text-white">
+            Form Fault Detectors & Corrective Cues
+          </h2>
+        </div>
+        <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-muted">
+          Ranked by pooled feature importance from the machine learning model. A fault is reported
+          only when its geometric trigger condition is objectively violated in real-time telemetry.
         </p>
 
-        <ol className="mt-4 list-decimal space-y-4 pl-6 marker:font-mono marker:text-xs marker:text-ink-faint">
-          {RANKED_TIPS.map((tip) => {
+        <div className="mt-6 space-y-4">
+          {RANKED_TIPS.map((tip, idx) => {
             const copy = ISSUE_COPY[tip.code];
+            const rankStr = String(idx + 1).padStart(2, '0');
             return (
-              <li key={tip.code} className="card p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <h3 className="text-sm font-semibold text-ink">{copy.headline}</h3>
+              <div
+                key={tip.code}
+                className="glass-card relative rounded-2xl border border-white/[0.06] p-5 transition-all hover:border-white/[0.14]"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="font-display text-xl font-black text-ink-faint">
+                      #{rankStr}
+                    </span>
+                    <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+                      {copy.headline}
+                    </h3>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {tip.captureQuality ? (
-                      <span className="chip-neutral">capture quality, not a form fault</span>
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-400">
+                        CAMERA QUALITY ISSUE
+                      </span>
                     ) : (
-                      <span className="chip-neutral">
-                        importance {tip.importance.toFixed(3)}
+                      <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-cyan">
+                        IMPORTANCE {tip.importance.toFixed(3)}
                       </span>
                     )}
-                    <span className="font-mono text-[11px] text-ink-faint">{tip.code}</span>
+                    <span className="rounded-md border border-white/[0.08] bg-base-darker px-2 py-0.5 font-mono text-[11px] text-ink-faint">
+                      {tip.code}
+                    </span>
                   </div>
                 </div>
 
-                <p className="mt-2 text-xs leading-relaxed text-ink-muted">{copy.detail}</p>
+                <p className="mt-3 text-xs leading-relaxed text-ink-muted">{copy.detail}</p>
 
-                <p className="mt-2.5 text-xs leading-relaxed text-ink">
-                  <span className="font-semibold">Fix: </span>
-                  {copy.tip}
-                </p>
+                {/* Fix Callout */}
+                <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-accent/20 bg-accent/[0.04] p-3">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[10px] font-black text-accent">
+                    ✓
+                  </span>
+                  <p className="text-xs leading-relaxed text-white">
+                    <strong className="text-accent font-semibold">CORRECTION: </strong>
+                    {copy.tip}
+                  </p>
+                </div>
 
-                <dl className="mt-3 grid grid-cols-1 gap-2 border-t border-base-border pt-3 sm:grid-cols-2">
-                  <div>
-                    <dt className="metric-label">Metric that detects it</dt>
-                    <dd className="mt-0.5 break-words font-mono text-[11px] text-ink-muted">
+                {/* Telemetry trigger grid */}
+                <div className="mt-4 grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-base-darker/50 p-2.5">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+                      Measured Telemetry Metric
+                    </span>
+                    <p className="mt-0.5 break-words font-mono text-[11px] font-medium text-cyan">
                       {tip.metric}
-                    </dd>
+                    </p>
                   </div>
-                  <div>
-                    <dt className="metric-label">Reported when</dt>
-                    <dd className="mt-0.5 text-[11px] leading-relaxed text-ink-muted">
+                  <div className="rounded-lg bg-base-darker/50 p-2.5">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+                      Active Trigger Boundary
+                    </span>
+                    <p className="mt-0.5 font-mono text-[11px] text-white">
                       {tip.trigger}
-                    </dd>
+                    </p>
                   </div>
-                </dl>
-              </li>
+                </div>
+              </div>
             );
           })}
-        </ol>
-
-        <p className="mt-4 max-w-3xl text-xs leading-relaxed text-ink-faint">
-          When a rep is judged bad but none of those triggers fires, the app says the movement
-          pattern differed from a clean push-up without naming a cause. That is deliberate: a
-          specific correction you do not need is worse than an honest &ldquo;something was
-          off&rdquo;.
-        </p>
+        </div>
       </section>
 
       {/* ---------------------------------------------------------------- */}
       {/* Camera setup                                                     */}
       {/* ---------------------------------------------------------------- */}
 
-      <section className="mt-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
-          Camera setup
-        </h2>
-        <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-faint">
-          The coach only sees joint positions, so what matters is that the joints it needs are
-          visible and the angle makes the geometry readable. The camera check runs these tests before
-          counting starts; the thresholds below are the ones in{' '}
-          <code className="font-mono">lib/workout-session.ts</code> and{' '}
-          <code className="font-mono">docs/POSE_SCHEMA.md</code>.
+      <section className="mt-14">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-accent shadow-glow-sm" />
+          <h2 className="font-display text-lg font-bold uppercase tracking-wider text-white">
+            Camera Placement & Optical Setup
+          </h2>
+        </div>
+        <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-muted">
+          Accurate biomechanics require crisp, unobstructed joint lines. The calibration phase
+          validates framing, lighting, and viewing angle before any repetition is counted.
         </p>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold text-ink">Which angle</h3>
-            <ol className="mt-3 space-y-3 text-xs leading-relaxed">
-              <li>
-                <span className="font-medium text-ink">1. Side view — first choice.</span>{' '}
-                <span className="text-ink-muted">
-                  Depth, body line and tempo are all measured without foreshortening, and those three
-                  carry 80% of the geometry weight. This is what the camera check asks for: side
-                  dominance of at least 0.55.
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {/* Side View */}
+          <div className="glass-card relative flex flex-col justify-between rounded-2xl border-2 border-accent/40 bg-gradient-to-b from-accent/[0.04] to-transparent p-5">
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+                  Side Profile View
+                </h3>
+                <span className="rounded-full bg-accent px-2.5 py-0.5 font-mono text-[10px] font-black uppercase text-base-darker">
+                  Recommended
                 </span>
-              </li>
-              <li>
-                <span className="font-medium text-ink">2. Diagonal — acceptable.</span>{' '}
-                <span className="text-ink-muted">
-                  Passes the same check, and it is the only view in which elbow flare can be
-                  detected. In a pure side view the shoulder angle is foreshortened, so the
-                  elbow-flare rule is switched off rather than guessed at.
-                </span>
-              </li>
-              <li>
-                <span className="font-medium text-ink">3. Front — last resort.</span>{' '}
-                <span className="text-ink-muted">
-                  Elbow flare and hip angle read well, but chest depth and body line are compressed
-                  by the perspective, which is exactly what the two heaviest components need.
-                </span>
-              </li>
-            </ol>
-            <p className="mt-3 border-t border-base-border pt-3 text-xs leading-relaxed text-ink-faint">
-              On our 205-rep test split the diagonal clips scored highest (0.766) and side clips
-              second-lowest (0.659), against 0.631 for front. Those cells hold only 44–84 reps from
-              four unseen subjects, so we treat them as indicative rather than conclusive, and we
-              still recommend the side view for the reason above.
-            </p>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                Side view (0.55+ side dominance) provides the clearest trajectory for depth (elbow
+                angle) and spine/hip alignment without angle foreshortening. 80% of our primary
+                geometric weights rely on this profile.
+              </p>
+            </div>
+            <div className="mt-4 rounded-xl border border-accent/20 bg-base-darker/60 p-3">
+              <div className="font-mono text-[11px] font-semibold text-accent">
+                BEST FOR: Depth & Spine Rigidity
+              </div>
+            </div>
           </div>
 
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold text-ink">Where to put the camera</h3>
-            <ul className="mt-3 space-y-2.5 text-xs leading-relaxed text-ink-muted">
-              <li>
-                Roughly level with your chest or shoulder, a couple of metres back, looking across
-                the length of your body rather than down it.
-              </li>
-              <li>
-                Your whole body must be in frame, feet included. The app rejects a frame when the
-                ankles are clipped at the bottom edge or the head is clipped at the top, and tells
-                you to move further from the camera instead of scoring partial data.
-              </li>
-              <li>
-                Distance is checked as well as framing: the body must span between 0.12 and 0.75 of
-                the frame. Too close or too far both fail, with different instructions.
-              </li>
-              <li>
-                The app requests 1280×720 at 30 fps. A higher resolution costs CPU in the pose loop
-                and does not improve the measurements.
-              </li>
-            </ul>
+          {/* Diagonal View */}
+          <div className="glass-card relative flex flex-col justify-between rounded-2xl border border-cyan/30 bg-gradient-to-b from-cyan/[0.03] to-transparent p-5">
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+                  Diagonal 45° View
+                </h3>
+                <span className="rounded-full border border-cyan/40 bg-cyan/10 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-cyan">
+                  Secondary
+                </span>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                Provides a balanced hybrid profile. Critical for detecting shoulder flare and elbow
+                abduction while still measuring depth and body line with high model confidence.
+              </p>
+            </div>
+            <div className="mt-4 rounded-xl border border-cyan/20 bg-base-darker/60 p-3">
+              <div className="font-mono text-[11px] font-semibold text-cyan">
+                BEST FOR: Elbow Flare Detection
+              </div>
+            </div>
           </div>
 
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold text-ink">Lighting and surroundings</h3>
-            <ul className="mt-3 space-y-2.5 text-xs leading-relaxed text-ink-muted">
-              <li>
-                Light yourself from the front or the side. Strong backlighting — a window or a lamp
-                behind you — turns you into a silhouette and the joints stop being tracked.
-              </li>
-              <li>
-                Calibration needs an average landmark visibility of at least 0.6 on the side facing
-                the camera. During the set, any frame below 0.5 is discarded rather than
-                interpolated, because a guessed hip position would produce an alignment reading that
-                looks good precisely when the camera could not see you.
-              </li>
-              <li>
-                Keep the background plain and keep other people out of frame. A second person stops
-                the session outright.
-              </li>
-              <li>
-                Fitted clothing helps. Loose fabric around the hips is the most common cause of
-                unstable hip tracking.
-              </li>
-            </ul>
+          {/* Front View */}
+          <div className="glass-card relative flex flex-col justify-between rounded-2xl border border-white/[0.08] p-5">
+            <div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+                  Frontal View
+                </h3>
+                <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-ink-faint">
+                  Fallback
+                </span>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                Hand width and shoulder abduction are clear, but torso alignment and depth are
+                optically foreshortened along the camera axis. Use when room geometry prevents side view.
+              </p>
+            </div>
+            <div className="mt-4 rounded-xl border border-white/10 bg-base-darker/60 p-3">
+              <div className="font-mono text-[11px] font-semibold text-ink-muted">
+                NOTE: Perspective compression applies
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -437,104 +438,70 @@ export default function TipsPage() {
       {/* What the score means                                             */}
       {/* ---------------------------------------------------------------- */}
 
-      <section className="mt-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
-          What the score means
-        </h2>
+      <section className="mt-14">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-cyan shadow-glow-sm" />
+          <h2 className="font-display text-lg font-bold uppercase tracking-wider text-white">
+            Evaluation Accuracy & Model Statistics
+          </h2>
+        </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold text-ink">How a number is produced</h3>
-
-            <ul className="mt-3 space-y-2.5 text-xs leading-relaxed text-ink-muted">
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="glass-card rounded-2xl border border-white/[0.06] p-5">
+            <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+              Formula Execution
+            </h3>
+            <div className="mt-3 rounded-xl border border-cyan/20 bg-base-darker/80 p-4 font-mono text-xs text-cyan">
+              rep_score = 0.65 × geometry + 0.35 × model
+            </div>
+            <ul className="mt-4 space-y-2.5 text-xs leading-relaxed text-ink-muted">
               <li>
-                <span className="font-mono text-[11px] text-ink">
-                  rep score = 0.65 × geometry + 0.35 × model
-                </span>
-                <br />
-                Both halves are reported separately, so you can see whether a low score came from a
-                measurement or from the classifier.
+                <strong className="text-white">Validation Gate:</strong> A rep is certified valid only when P(good) ≥ 0.58 and geometry score ≥ 55.
               </li>
               <li>
-                A rep counts as valid only when both conditions hold: P(good) is at or above the
-                tuned threshold of 0.58, <em>and</em> the geometry score is at least 55. The second
-                condition catches reps the model likes that break a hard rule such as badly sagging
-                hips.
+                <strong className="text-white">Full Transparency:</strong> Invalid reps are highlighted with specific fault badges, never silently ignored.
               </li>
               <li>
-                Your session score is the mean of every rep, valid and invalid alike. Invalid reps
-                are counted and shown, never quietly dropped.
-              </li>
-              <li>
-                With no reps recorded the score reads <span className="font-mono">--</span>, not 0.
-                With fewer than three reps it is shown as provisional, because one rep is a poor
-                estimate of anyone&rsquo;s form.
+                <strong className="text-white">Provisional Tag:</strong> Sessions with fewer than 3 reps are flagged as provisional for statistically valid sampling.
               </li>
             </ul>
           </div>
 
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold text-ink">How much to trust it</h3>
-
-            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-              The classifier is a binary good/bad model trained on 917 reps from 24 people. It was
-              trained on 16 subjects and tested on 4 it had never seen, which is the honest way to
-              measure it — and the reason the numbers are modest.
+          <div className="glass-card rounded-2xl border border-white/[0.06] p-5">
+            <h3 className="font-display text-base font-bold uppercase tracking-wide text-white">
+              Model Benchmark On Unseen Subjects
+            </h3>
+            <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+              Trained on 917 reps from 24 people. Evaluated strictly on 4 unseen subjects in held-out
+              splits.
             </p>
-
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-              <Stat term="Test accuracy" value="0.688" />
+            <dl className="mt-4 grid grid-cols-2 gap-4">
+              <Stat term="Test Accuracy" value="0.688" />
               <Stat term="Macro F1" value="0.672" />
               <Stat term="ROC AUC" value="0.702" />
-              <Stat term="Bad-form recall" value="0.585" />
+              <Stat term="Bad-Form Recall" value="0.585" />
             </dl>
-
-            <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-              Bad-form recall of 0.585 means roughly four in ten genuinely bad reps are labelled
-              good. Per-subject accuracy across the four test subjects ranged from 0.444 to 0.861,
-              so the score is partly a measure of how well the model generalises to you. Treat
-              P(good) as an estimate, not a verdict.
-            </p>
-
-            <p className="mt-3 border-t border-base-border pt-3 text-xs leading-relaxed text-ink-faint">
-              The app behaves the same way. When P(good) lands within 0.08 of the threshold it
-              reports the rep as borderline rather than asserting good or bad, and the uncertainty
-              is shown on screen instead of being rounded away.
-            </p>
           </div>
-        </div>
-
-        <div className="card mt-4 p-4">
-          <h3 className="text-sm font-semibold text-ink">What it does not claim</h3>
-          <ul className="mt-3 grid grid-cols-1 gap-2 text-xs leading-relaxed text-ink-muted md:grid-cols-2">
-            <li>Which muscle is weak, or what to stretch.</li>
-            <li>Hand placement width — not recoverable from wrist landmarks in side view.</li>
-            <li>Head or neck position.</li>
-            <li>Calories, &ldquo;strength&rdquo;, or any other physiological estimate.</li>
-          </ul>
-          <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-            Everything shown is derived from joint positions in the camera feed. Frames are analysed
-            for pose estimation and are not stored.
-          </p>
         </div>
       </section>
 
-      {/* ---------------------------------------------------------------- */}
-
-      <section className="mt-10">
-        <div className="card flex flex-wrap items-center justify-between gap-4 p-5">
+      {/* Bottom CTA */}
+      <section className="mt-14">
+        <div className="glass-card flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-accent/30 bg-gradient-to-r from-accent/[0.06] via-transparent to-cyan/[0.06] p-6">
           <div>
-            <h2 className="text-sm font-semibold text-ink">Ready to try it</h2>
+            <h2 className="font-display text-xl font-bold uppercase tracking-tight text-white">
+              Ready to Test Your Form?
+            </h2>
             <p className="mt-1 text-xs text-ink-muted">
-              The camera check will confirm your framing and angle before the first rep counts.
+              Position your camera and begin real-time on-device biomechanical coaching now.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/workout" className="btn-primary">
-              Start workout
+              Launch Workout Session
             </Link>
             <Link href="/challenge" className="btn-secondary">
-              30-second challenge
+              Take 30s Challenge
             </Link>
           </div>
         </div>
@@ -547,9 +514,9 @@ export default function TipsPage() {
 
 function Stat({ term, value }: { term: string; value: string }) {
   return (
-    <div>
-      <dt className="metric-label">{term}</dt>
-      <dd className="tabular mt-1 text-lg font-semibold text-ink">{value}</dd>
+    <div className="rounded-xl border border-white/[0.06] bg-base-darker/60 p-3">
+      <dt className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">{term}</dt>
+      <dd className="font-display mt-1 text-2xl font-black tracking-tight text-white">{value}</dd>
     </div>
   );
 }

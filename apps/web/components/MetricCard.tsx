@@ -1,17 +1,10 @@
 /**
  * components/MetricCard.tsx
  *
- * Agent 3 — UI DESIGN SYSTEM ENGINEER
- *
- * The right-hand metric tiles. Three deliberate rules:
- *
- *  1. Larger type than a normal dashboard. The spec requires these be readable
- *     from several metres away at an IT-fest booth, which a standard 24px
- *     metric is not.
- *  2. Valid/invalid never rely on colour alone — each carries a text label and
- *     a distinct icon, so the distinction survives colour-blindness and a
- *     washed-out projector.
- *  3. When a value is unavailable it shows "--". Never 0, never a guess.
+ * High-visibility athletic metric cards and telemetry progress meters:
+ * - High-contrast numerals readable from across a gym floor or exhibition booth
+ * - Dual visual cues: color, typography, and SVG indicators
+ * - Sports HUD aesthetic with subtle luminous elevation
  */
 
 import clsx from 'clsx';
@@ -45,15 +38,22 @@ export function MetricCard({
           ? 'text-ink-muted'
           : 'text-ink';
 
+  const cardStyle =
+    tone === 'good'
+      ? 'border-accent/30 bg-gradient-to-b from-base-raised to-accent/[0.04] shadow-glow-sm'
+      : tone === 'bad'
+        ? 'border-danger/30 bg-gradient-to-b from-base-raised to-danger/[0.04]'
+        : 'border-base-border/80 bg-base-raised/90';
+
   return (
-    <div className="card p-4">
-      <div className="flex items-center justify-between gap-2">
-        <span className="metric-label">{label}</span>
+    <div className={clsx('card p-4 transition-all duration-200', cardStyle)}>
+      <div className="flex items-center justify-between gap-1.5">
+        <span className="metric-label text-[10px] sm:text-label truncate">{label}</span>
         {tone !== 'default' && <ToneIcon tone={tone} />}
       </div>
       <div
         className={clsx(
-          'mt-2 tabular font-bold tracking-tight',
+          'mt-1.5 tabular font-display font-black tracking-tight',
           emphasis ? 'text-metric' : 'text-metricSm',
           valueTone,
         )}
@@ -61,7 +61,7 @@ export function MetricCard({
         {display}
       </div>
       {caption && (
-        <div className="mt-1 text-xs text-ink-faint">
+        <div className="mt-0.5 text-[11px] font-mono text-ink-faint">
           {caption}
         </div>
       )}
@@ -70,18 +70,17 @@ export function MetricCard({
 }
 
 /**
- * Icon paired with each tone. This is what makes the good/bad distinction
- * accessible without colour.
+ * Accessible status icon for tone distinction.
  */
 function ToneIcon({ tone }: { tone: 'good' | 'bad' | 'neutral' }) {
   if (tone === 'good') {
     return (
-      <span className="text-accent" aria-hidden="true">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-accent" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
           <path
             d="M3 8.5 L6.5 12 L13 4.5"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -91,12 +90,12 @@ function ToneIcon({ tone }: { tone: 'good' | 'bad' | 'neutral' }) {
   }
   if (tone === 'bad') {
     return (
-      <span className="text-danger" aria-hidden="true">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger/15 text-danger" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
           <path
             d="M4.5 4.5 L11.5 11.5 M11.5 4.5 L4.5 11.5"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="round"
           />
         </svg>
@@ -104,18 +103,16 @@ function ToneIcon({ tone }: { tone: 'good' | 'bad' | 'neutral' }) {
     );
   }
   return (
-    <span className="text-ink-faint" aria-hidden="true">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-        <path d="M4 8 L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-base-border text-ink-muted" aria-hidden="true">
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="3" fill="currentColor" />
       </svg>
     </span>
   );
 }
 
 /**
- * Labeled progress meter used by the Form Analysis panel.
- * Includes the numeric value as text so the reading does not depend on
- * judging a bar length.
+ * Labeled sports telemetry progress meter used by the Form Analysis panel.
  */
 export function MeterRow({
   label,
@@ -127,21 +124,30 @@ export function MeterRow({
   max?: number;
 }) {
   const hasValue = value !== null && Number.isFinite(value);
-  const pct = hasValue ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
-  const low = hasValue && pct < 60;
+  const ratio = hasValue ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+  const isLow = hasValue && ratio < 60;
+  const isOptimal = hasValue && ratio >= 80;
 
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm text-ink-muted">{label}</span>
-        <span className="tabular text-sm font-medium text-ink">
-          {hasValue ? `${Math.round(value)}%` : '--'}
-        </span>
+        <span className="text-xs font-medium text-ink-muted">{label}</span>
+        <div className="flex items-center gap-2">
+          {hasValue && isOptimal && (
+            <span className="text-[9px] font-mono font-bold text-accent">OPTIMAL</span>
+          )}
+          <span className="tabular font-mono text-xs font-bold text-ink">
+            {hasValue ? `${Math.round(value)}%` : '--'}
+          </span>
+        </div>
       </div>
-      <div className="meter mt-1.5" role="presentation">
+      <div className="meter mt-1.5 relative" role="presentation">
         <div
-          className={low ? 'meter-fill-warn' : 'meter-fill'}
-          style={{ width: `${pct}%` }}
+          className={clsx(
+            isLow ? 'meter-fill-warn' : 'meter-fill',
+            'relative shadow-sm',
+          )}
+          style={{ width: `${ratio}%` }}
         />
       </div>
       <span className="sr-only">

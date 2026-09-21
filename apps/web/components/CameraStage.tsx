@@ -3,9 +3,7 @@
 /**
  * components/CameraStage.tsx
  *
- * Agent 5 — CAMERA ENGINEER + Agent 6 — POSE ENGINEER (integration)
- *
- * The camera panel: <video> + <canvas> overlay + status chrome.
+ * The camera panel: <video> + <canvas> overlay + sports HUD viewfinder brackets.
  *
  * Integration contract:
  *   - PoseOverlay is driven imperatively through a ref (no React re-render per
@@ -88,7 +86,7 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
   return (
     <div
       className={clsx(
-        'relative overflow-hidden rounded-card border border-base-border bg-base-sunken',
+        'relative overflow-hidden rounded-card border border-base-border/90 bg-base-sunken shadow-2xl hud-bracket',
         aspect,
         className,
       )}
@@ -107,51 +105,54 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
         videoHeight={videoHeight}
       />
 
-      {/* Top-left: LIVE indicator */}
-      <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2">
+      {/* Top-left: LIVE indicator with glow */}
+      <div className="pointer-events-none absolute left-3 sm:left-4 top-3 sm:top-4 flex items-center gap-2 z-20">
         <span
           className={clsx(
-            'flex items-center gap-2 rounded-chip border px-2.5 py-1 text-xs font-medium backdrop-blur-sm',
+            'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-mono font-bold tracking-wide backdrop-blur-md shadow-sm',
             isLive
-              ? 'border-accent-deep bg-base/80 text-accent'
-              : 'border-base-border bg-base/80 text-ink-muted',
+              ? 'border-accent/50 bg-base/85 text-accent shadow-glow-sm'
+              : 'border-base-border bg-base/85 text-ink-muted',
           )}
         >
           <span
             className={clsx(
-              'h-1.5 w-1.5 rounded-full',
+              'h-2 w-2 rounded-full',
               isLive ? 'animate-pulse-dot bg-accent' : 'bg-ink-faint',
             )}
             aria-hidden="true"
           />
-          {isLive ? 'Live' : 'Standby'}
+          {isLive ? 'LIVE MOTION AI' : 'STANDBY'}
         </span>
       </div>
 
-      {/* Top-right: camera status */}
-      <div className="pointer-events-none absolute right-4 top-4">
-        <span className="flex items-center gap-1.5 rounded-chip border border-base-border bg-base/80 px-2.5 py-1 text-xs text-ink-muted backdrop-blur-sm">
+      {/* Top-right: Camera & Vision Engine specs */}
+      <div className="pointer-events-none absolute right-3 sm:right-4 top-3 sm:top-4 flex items-center gap-1.5 z-20">
+        <span className="hidden sm:flex items-center gap-1.5 rounded-full border border-cyan/30 bg-base/85 px-2.5 py-1 text-[11px] font-mono text-cyan backdrop-blur-md">
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan" />
+          WASM 60 FPS
+        </span>
+        <span className="flex items-center gap-1.5 rounded-full border border-base-border bg-base/85 px-2.5 py-1 text-xs font-mono text-ink-muted backdrop-blur-md">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <rect x="1.5" y="4" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
             <path d="M10.5 7.2 L14 5.2 v5.6 L10.5 8.8" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
           </svg>
-          Camera On
+          CAMERA ON
         </span>
       </div>
 
       {/*
-        Centre overlay message (pose lost, paused, etc.). This appears without
-        any user action — pose loss auto-pauses the session — so it is a polite
-        live region: a screen-reader user must learn that counting has stopped.
+        Centre overlay message (pose lost, paused, etc.).
       */}
       {overlayMessage && (
         <div
-          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-base/55"
+          className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-base/65 backdrop-blur-sm"
           role="status"
           aria-live="polite"
         >
-          <div className="animate-fade-in rounded-card border border-base-border bg-base-raised px-5 py-3 text-center">
-            <p className="text-sm font-medium text-ink">{overlayMessage}</p>
+          <div className="animate-fade-in rounded-card border border-accent/40 bg-base-raised/95 px-6 py-4 text-center shadow-2xl">
+            <p className="text-base font-bold text-ink">{overlayMessage}</p>
+            <p className="mt-1 text-xs text-ink-muted">Tracking resumes automatically when visible</p>
           </div>
         </div>
       )}

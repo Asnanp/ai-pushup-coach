@@ -23,93 +23,103 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Surfaces — a cool near-black, deliberately not pure #000 so borders
-        // and shadows read against it.
+        // Deep obsidian carbon surfaces
         base: {
-          DEFAULT: '#0B1117', // page background
-          raised: '#121A22', // cards
-          sunken: '#080D12', // camera letterbox
-          border: '#1E2A35', // hairline borders
-          hover: '#18222C',
+          DEFAULT: '#070A0E', // page background
+          raised: '#0F161E', // cards
+          sunken: '#030508', // camera letterbox
+          border: '#1C2733', // hairline borders
+          hover: '#15202B',
         },
         // Text
         ink: {
-          DEFAULT: '#E8EDF2', // primary off-white
+          DEFAULT: '#F0F4F8', // primary crisp white
           muted: '#8A99A8', // secondary cool gray
-          faint: '#5A6875', // tertiary / labels
+          faint: '#526270', // tertiary / labels
         },
-        // Accent — soft green. Used for: primary state, valid reps, success.
-        // Deliberately not used for buttons, links, headers, or decoration,
-        // so it retains meaning.
+        // Accent — cyber emerald for valid reps, target depth, and success
         accent: {
-          DEFAULT: '#7DD87D',
-          dim: '#4FA85A',
-          deep: '#2E6B39',
-          wash: '#12240F', // very subtle tinted background
+          DEFAULT: '#00F090',
+          dim: '#059669',
+          deep: '#064E3B',
+          wash: 'rgba(0, 240, 144, 0.08)',
         },
-        // Restrained semantic colours
+        // Laser Cyan — for telemetry, angles, radar, and active indicators
+        cyan: {
+          DEFAULT: '#00E5FF',
+          dim: '#0891B2',
+          wash: 'rgba(0, 229, 255, 0.08)',
+        },
+        // Athletic Crimson — for invalid reps, form breaks, and stop actions
         danger: {
-          DEFAULT: '#E5484D',
-          dim: '#A02B2F',
-          wash: '#2A0F10',
+          DEFAULT: '#FF3B5C',
+          dim: '#BE123C',
+          wash: 'rgba(255, 59, 92, 0.08)',
         },
+        // Electric Amber — for calibration, phase transitions, and warnings
         warn: {
-          DEFAULT: '#E0A33A',
-          wash: '#2A1F0A',
+          DEFAULT: '#FFB800',
+          dim: '#D97706',
+          wash: 'rgba(255, 184, 0, 0.08)',
         },
       },
       fontFamily: {
         sans: [
-          'ui-sans-serif',
+          'Outfit',
+          'Inter',
           'system-ui',
           '-apple-system',
           'Segoe UI',
           'Roboto',
-          'Helvetica Neue',
-          'Arial',
+          'sans-serif',
+        ],
+        display: [
+          '"Barlow Condensed"',
+          'Outfit',
+          'system-ui',
           'sans-serif',
         ],
         mono: [
+          '"JetBrains Mono"',
           'ui-monospace',
           'SFMono-Regular',
           'Cascadia Mono',
-          'Consolas',
           'monospace',
         ],
       },
       fontSize: {
-        // Metric numerals must be readable from several metres away at an
-        // IT-fest booth — this is why `metric` is so large.
-        metric: ['3.25rem', { lineHeight: '1', letterSpacing: '-0.02em', fontWeight: '700' }],
-        metricSm: ['2rem', { lineHeight: '1', letterSpacing: '-0.01em', fontWeight: '700' }],
-        display: ['2.25rem', { lineHeight: '1.15', letterSpacing: '-0.02em', fontWeight: '600' }],
-        label: ['0.6875rem', { lineHeight: '1.4', letterSpacing: '0.08em', fontWeight: '600' }],
+        metric: ['3.5rem', { lineHeight: '1', letterSpacing: '-0.03em', fontWeight: '800' }],
+        metricSm: ['2.25rem', { lineHeight: '1', letterSpacing: '-0.02em', fontWeight: '700' }],
+        display: ['2.5rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
+        label: ['0.6875rem', { lineHeight: '1.4', letterSpacing: '0.1em', fontWeight: '600' }],
       },
       borderRadius: {
-        // Tight. Large pills everywhere is the generic-AI look we are avoiding.
-        card: '10px',
-        control: '8px',
-        chip: '6px',
+        card: '12px',
+        control: '10px',
+        chip: '8px',
       },
       spacing: {
         gutter: '1.25rem',
       },
       boxShadow: {
-        card: '0 1px 2px rgba(0,0,0,0.4)',
-        raised: '0 4px 16px rgba(0,0,0,0.45)',
+        card: '0 4px 20px -2px rgba(0, 0, 0, 0.5)',
+        raised: '0 8px 32px -4px rgba(0, 0, 0, 0.65)',
+        glow: '0 0 24px -4px rgba(0, 240, 144, 0.4)',
+        'glow-accent': '0 0 24px -4px rgba(0, 240, 144, 0.35)',
+        'glow-cyan': '0 0 24px -4px rgba(0, 229, 255, 0.35)',
+        'glow-sm': '0 0 12px -2px rgba(0, 240, 144, 0.25)',
       },
       keyframes: {
-        // The only looping animation in the app: the LIVE indicator pulse.
         'pulse-dot': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.35' },
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.4', transform: 'scale(0.85)' },
         },
         'fade-in': {
-          from: { opacity: '0' },
-          to: { opacity: '1' },
+          from: { opacity: '0', transform: 'scale(0.98)' },
+          to: { opacity: '1', transform: 'scale(1)' },
         },
         'slide-up': {
-          from: { opacity: '0', transform: 'translateY(6px)' },
+          from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
       },
