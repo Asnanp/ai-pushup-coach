@@ -344,6 +344,31 @@ describe('remote mirror', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('sends the device key header when saving a session remotely', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+    const fetchSpy = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+    getDeviceKey();
+
+    await saveSession({
+      startedAt: '2026-01-01T10:00:00.000Z',
+      endedAt: '2026-01-01T10:01:00.000Z',
+      durationSeconds: 60,
+      metrics: makeMetrics(),
+      reps: [],
+      viewType: 'front',
+      mode: 'workout',
+    });
+
+    expect(fetchSpy).toHaveBeenCalled();
+    const headers = fetchSpy.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(headers['x-device-key']).toBe(getDeviceKey());
+    expect(headers.apikey).toBe('anon-key');
+  });
+
   it('stays local-only when the remote mirror is unreachable', async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';

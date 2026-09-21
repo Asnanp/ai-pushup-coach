@@ -175,6 +175,73 @@ export function loadSessions(): StoredSession[] {
   );
 }
 
+/** Merge local history with this device's cloud sessions. */
+export async function fetchSessionsMerged(): Promise<StoredSession[]> {
+  const local = loadSessions();
+  const cfg = supabaseConfig();
+  if (!cfg) return local;
+
+  try {
+    const res = await fetch(
+      `${cfg.url}/rest/v1/workout_sessions?select=*,workout_reps(*)&order=started_at.desc&limit=100`,
+      { headers: supabaseHeaders(), cache: 'no-store' },
+    );
+    if (!res.ok) return local;
+
+    const rows = (await res.json()) as Record<string, unknown>[];
+    const remote: StoredSession[] = rows.map((r) => {
+      const rawReps = Array.isArray(r.workout_reps) ? r.workout_reps : [];
+      const reps: WorkoutRepRecord[] = rawReps
+        .map((rep) => {
+          const row = rep as Record<string, unknown>;
+          return {
+            repNumber: Number(row.rep_number ?? 0),
+            valid: Boolean(row.valid),
+            formProbability: Number(row.form_probability ?? NaN),
+            formLabel: (row.form_label as WorkoutRepRecord['formLabel']) ?? 'unknown',
+            depthScore: Number(row.depth_score ?? NaN),
+            alignmentScore: Number(row.alignment_score ?? NaN),
+            tempoScore: Number(row.tempo_score ?? NaN),
+            consistencyScore: Number(row.consistency_score ?? NaN),
+            repScore: Number(row.depth_score ?? NaN),
+            detectedIssue: (row.detected_issue as WorkoutRepRecord['detectedIssue']) ?? null,
+            repDurationSeconds: Number(row.rep_duration_seconds ?? NaN),
+            minElbowAngleDeg: Number(row.min_elbow_angle_deg ?? NaN),
+            bodyLineDeviationMax: Number(row.body_line_deviation_max ?? NaN),
+          };
+        })
+        .sort((a, b) => a.repNumber - b.repNumber);
+
+      return {
+        id: String(r.id),
+        startedAt: String(r.started_at),
+        endedAt: String(r.ended_at),
+        durationSeconds: Number(r.duration_seconds ?? 0),
+        totalReps: Number(r.total_reps ?? 0),
+        validReps: Number(r.valid_reps ?? 0),
+        invalidReps: Number(r.invalid_reps ?? 0),
+        formScore: r.form_score == null ? null : Number(r.form_score),
+        viewType: (r.view_type as StoredSession['viewType']) ?? 'front',
+        mode: (r.mode as StoredSession['mode']) ?? 'workout',
+        bestStreak: Number(r.best_streak ?? 0),
+        meanRepSeconds: r.mean_rep_seconds == null ? null : Number(r.mean_rep_seconds),
+        mostCommonIssue: (r.most_common_issue as StoredSession['mostCommonIssue']) ?? null,
+        createdAt: String(r.created_at ?? r.started_at),
+        reps,
+        localOnly: false,
+      };
+    });
+
+    const remoteIds = new Set(remote.map((s) => s.id));
+    const localOnly = local.filter((s) => s.localOnly !== false && !remoteIds.has(s.id));
+    return [...remote, ...localOnly].sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+    );
+  } catch {
+    return local;
+  }
+}
+
 export function clearSessions(): void {
   writeJson(SESSIONS_KEY, []);
 }
@@ -273,18 +340,30 @@ export function isRemoteEnabled(): boolean {
   return supabaseConfig() !== null;
 }
 
+function supabaseHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const cfg = supabaseConfig();
+  if (!cfg) return extra;
+  const headers: Record<string, string> = {
+    apikey: cfg.key,
+    Authorization: `Bearer ${cfg.key}`,
+    ...extra,
+  };
+  const device = getDeviceKey();
+  if (device && device !== 'server') headers['x-device-key'] = device;
+  return headers;
+}
+
 async function pushSessionRemote(session: StoredSession): Promise<string | null> {
   const cfg = supabaseConfig();
   if (!cfg) return null;
 
+  const device = getDeviceKey();
   const res = await fetch(`${cfg.url}/rest/v1/workout_sessions`, {
     method: 'POST',
-    headers: {
+    headers: supabaseHeaders({
       'Content-Type': 'application/json',
-      apikey: cfg.key,
-      Authorization: `Bearer ${cfg.key}`,
       Prefer: 'return=representation',
-    },
+    }),
     body: JSON.stringify({
       started_at: session.startedAt,
       ended_at: session.endedAt,
@@ -298,6 +377,7 @@ async function pushSessionRemote(session: StoredSession): Promise<string | null>
       best_streak: session.bestStreak,
       mean_rep_seconds: session.meanRepSeconds,
       most_common_issue: session.mostCommonIssue,
+      device_key: device !== 'server' ? device : null,
     }),
   });
 
@@ -311,11 +391,7 @@ async function pushSessionRemote(session: StoredSession): Promise<string | null>
   if (session.reps.length > 0) {
     await fetch(`${cfg.url}/rest/v1/workout_reps`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: cfg.key,
-        Authorization: `Bearer ${cfg.key}`,
-      },
+      headers: supabaseHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(
         session.reps.map((r) => ({
           session_id: sessionId,
@@ -343,14 +419,13 @@ async function pushLeaderboardRemote(entry: LeaderboardEntry): Promise<string | 
   const cfg = supabaseConfig();
   if (!cfg) return null;
 
+  const device = getDeviceKey();
   const res = await fetch(`${cfg.url}/rest/v1/leaderboard_entries`, {
     method: 'POST',
-    headers: {
+    headers: supabaseHeaders({
       'Content-Type': 'application/json',
-      apikey: cfg.key,
-      Authorization: `Bearer ${cfg.key}`,
       Prefer: 'return=representation',
-    },
+    }),
     body: JSON.stringify({
       display_name: entry.displayName,
       valid_reps: entry.validReps,
@@ -359,6 +434,7 @@ async function pushLeaderboardRemote(entry: LeaderboardEntry): Promise<string | 
       duration_seconds: entry.durationSeconds,
       best_streak: entry.bestStreak,
       mode: entry.mode,
+      device_key: device !== 'server' ? device : null,
     }),
   });
   if (!res.ok) throw new Error(`leaderboard insert failed: ${res.status}`);
@@ -374,9 +450,9 @@ export async function fetchLeaderboardMerged(): Promise<LeaderboardEntry[]> {
 
   try {
     const res = await fetch(
-      `${cfg.url}/rest/v1/leaderboard_entries?select=*&mode=eq.challenge30&order=valid_reps.desc,form_score.desc,duration_seconds.asc&limit=100`,
+      `${cfg.url}/rest/v1/leaderboard_entries?select=*&order=valid_reps.desc,form_score.desc,duration_seconds.asc&limit=200`,
       {
-        headers: { apikey: cfg.key, Authorization: `Bearer ${cfg.key}` },
+        headers: supabaseHeaders(),
         cache: 'no-store',
       },
     );

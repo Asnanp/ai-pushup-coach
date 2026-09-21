@@ -25,14 +25,26 @@ export interface Landmark {
  * fell below MIN_VISIBILITY — downstream code must not use the geometry
  * fields in that case, they will be NaN.
  */
+export interface PoseCapability {
+  canCountRep: boolean;
+  canGradeDepth: boolean;
+  canGradeAlignment: boolean;
+  canGradeSymmetry: boolean;
+  canGradeTempo: boolean;
+  canFullyAssessForm: boolean;
+}
+
 export interface PoseFrame {
   timestamp: number;
   landmarks: Landmark[];
+  /** MediaPipe world landmarks in meters, hip-origin. Never persist as video. */
+  worldLandmarks?: Landmark[];
   /** Which body side the geometry was derived from. */
   side: 'left' | 'right';
   valid: boolean;
   /** Mean visibility of the active side. */
   sideVisibility: number;
+  capability?: PoseCapability;
 }
 
 export type CameraView = 'side' | 'diagonal' | 'front';
@@ -74,6 +86,24 @@ export interface RepMotionSignal {
   worldDepthMotion: number;
   poseConfidence: number;
   view: V2CameraView;
+  /** V3 extras — optional so V2 extractors remain valid. */
+  elbowLeft2D?: number;
+  elbowRight2D?: number;
+  elbowLeft3D?: number;
+  elbowRight3D?: number;
+  shoulderCenterX?: number;
+  shoulderCenterY?: number;
+  shoulderCenterZ?: number;
+  hipCenterX?: number;
+  hipCenterY?: number;
+  hipCenterZ?: number;
+  shoulderWorldZ?: number;
+  torsoWorldZ?: number;
+  shoulderWristDist?: number;
+  centroidY?: number;
+  leftVisibility?: number;
+  rightVisibility?: number;
+  elbowVelocity?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,6 +143,138 @@ export type RepState =
   | 'DOWN'
   | 'ASCENDING';
 
+/** V3 coherent-cycle detector. Independent of the V2 elbow-threshold FSM. */
+export type V3RepState =
+  | 'WAITING'
+  | 'TOP_CONFIRMED'
+  | 'DESCENDING'
+  | 'BOTTOM_CONFIRMED'
+  | 'ASCENDING'
+  | 'TOP_RETURNED'
+  | 'COMPLETE'
+  | 'REARMING';
+
+export interface MotionEvidence {
+  elbowEvidence: number;
+  depthEvidence: number;
+  centroidEvidence: number;
+  distanceEvidence: number;
+  bilateralAgreement: number;
+  motionDirection: number;
+  movementMagnitude: number;
+  phaseConfidence: number;
+  overallConfidence: number;
+}
+
+export interface PhaseEstimate {
+  phase: number;
+  confidence: number;
+  elbowPhase: number;
+  depthPhase: number;
+  centroidPhase: number;
+  distancePhase: number;
+}
+
+export interface PersonalRom {
+  elbowTop: number;
+  elbowBottom: number;
+  shoulderYTop: number;
+  shoulderYBottom: number;
+  depthTop: number;
+  depthBottom: number;
+  distTop: number;
+  distBottom: number;
+  depthPolarity: number;
+  shoulderYPolarity: number;
+  distPolarity: number;
+  samples: number;
+}
+
+export interface RepCycleEvent {
+  index: number;
+  startTime: number;
+  bottomTime: number;
+  endTime: number;
+  durationS: number;
+  phaseExcursion: number;
+  angularExcursion: number;
+  depthExcursion: number;
+  elbowMin: number;
+  elbowMax: number;
+  shoulderYTop: number;
+  shoulderYBottom: number;
+  depthTop: number;
+  depthBottom: number;
+  distTop: number;
+  distBottom: number;
+  bilateralAgreement: number;
+  directionConsistency: number;
+  overallConfidence: number;
+  counted: boolean;
+  rejectionReason: string | null;
+  frames: FrameFeatures[];
+}
+
+export interface GroundTruthRep {
+  start: number;
+  bottom: number;
+  end: number;
+}
+
+export interface DetectedRepInterval {
+  start: number;
+  bottom: number;
+  end: number;
+}
+
+export interface EventMatchReport {
+  tp: number;
+  fp: number;
+  fn: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  mae: number;
+  medianAbsError: number;
+  exactCountRate: number;
+  within1Rate: number;
+}
+
+export interface LiveTraceFrame {
+  timestamp: number;
+  view: V2CameraView;
+  viewConfidence: number;
+  leftShoulder: { x: number; y: number; z: number; visibility: number };
+  leftElbow: { x: number; y: number; z: number; visibility: number };
+  leftWrist: { x: number; y: number; z: number; visibility: number };
+  rightShoulder: { x: number; y: number; z: number; visibility: number };
+  rightElbow: { x: number; y: number; z: number; visibility: number };
+  rightWrist: { x: number; y: number; z: number; visibility: number };
+  hipCenter: { x: number; y: number; z: number };
+  shoulderCenter: { x: number; y: number; z: number };
+  leftElbow2D: number;
+  rightElbow2D: number;
+  leftElbow3D: number;
+  rightElbow3D: number;
+  bilateralFusedAngle: number;
+  shoulderImageMovement: number;
+  shoulderWorldZ: number;
+  torsoWorldZ: number;
+  poseConfidence: number;
+  rawRepSignal: number;
+  filteredRepSignal: number;
+  normalizedMovementPhase: number;
+  fsmState: V3RepState;
+  counterConfidence: number;
+  candidateCycleId: number | null;
+  repEventEmitted: boolean;
+  rejectionReason: string | null;
+  calibration: PersonalRom;
+  adaptiveRom: PersonalRom;
+}
+
+export type WorkoutMode = 'free' | 'target' | 'form-practice' | 'challenge-30' | 'challenge-60';
+
 export interface RepThresholds {
   upEnter: number;
   upExit: number;
@@ -149,7 +311,12 @@ export interface GeometryIssue {
   evidence: string;
 }
 
-export type CalibrationPhase = 'CAMERA_CHECK' | 'MOVEMENT_CALIBRATION' | 'READY';
+export type CalibrationPhase =
+  | 'CAMERA_CHECK'
+  | 'HOLD_TOP'
+  | 'MOVEMENT_CALIBRATION'
+  | 'COUNTDOWN'
+  | 'READY';
 
 export interface TwoStageCalibrationState {
   phase: CalibrationPhase;
@@ -173,11 +340,19 @@ export interface CorrectionStatus {
 
 export type IssueCode =
   | 'INCOMPLETE_DEPTH'
+  | 'SHALLOW_DEPTH'
   | 'HIPS_TOO_HIGH'
+  | 'HIP_PIKE'
   | 'HIPS_DROPPING'
+  | 'HIP_SAG'
   | 'BODY_NOT_STRAIGHT'
+  | 'BODY_ALIGNMENT'
   | 'ELBOW_FLARE'
+  | 'ARM_ASYMMETRY'
   | 'TOO_FAST'
+  | 'TEMPO_TOO_FAST'
+  | 'TEMPO_TOO_SLOW'
+  | 'INCOMPLETE_LOCKOUT'
   | 'KNEES_BENT'
   | 'PARTIAL_RANGE'
   | 'UNSTABLE'

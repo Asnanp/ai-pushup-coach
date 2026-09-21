@@ -26,8 +26,10 @@ import {
   alignmentScore,
   consistencyScore,
   depthScore,
+  depthScoreFromPhase,
   geometryScore,
   romScore,
+  romScoreFromPhase,
   tempoScore,
 } from './geometry-scores';
 import type { FormModel } from './model-runtime';
@@ -61,6 +63,7 @@ export interface IssueEvidence {
 export function detectIssues(
   raw: Record<string, number>,
   view: 'side' | 'diagonal' | 'front',
+  live?: LiveCycleEvidence,
 ): IssueEvidence[] {
   const found: IssueEvidence[] = [];
   const g = (k: string) => raw[k];
@@ -75,43 +78,53 @@ export function detectIssues(
   const repDur = g('rep_duration_s');
   const jitter = g('jitter_score');
 
-  // Depth: elbow never got near 90deg.
-  if (has('min_elbow_angle_deg') && minElbow > 105) {
+  // Depth: elbow never got near 90deg — side view only.
+  // Front 2D elbow often stays above 130° on a real push-up (foreshortening).
+  const frontish = view === 'front' || view === 'diagonal';
+  if (frontish && live && Number.isFinite(live.phaseExcursion)) {
+    if (live.phaseExcursion < 0.32) {
+      found.push({
+        code: 'INCOMPLETE_DEPTH',
+        evidence: `movement depth ${(live.phaseExcursion * 100).toFixed(0)}% of personal range`,
+      });
+    }
+  } else if (has('min_elbow_angle_deg') && minElbow > 105) {
     found.push({
       code: 'INCOMPLETE_DEPTH',
       evidence: `deepest elbow angle ${minElbow.toFixed(0)}deg (target <=90deg)`,
     });
   }
 
-  // Hips sagging toward the floor.
-  if (has('body_line_deviation_mean') && blMean > 0.1) {
-    found.push({
-      code: 'HIPS_DROPPING',
-      evidence: `hips ${blMean.toFixed(2)} torso-lengths below the shoulder-ankle line`,
-    });
-  }
+  // Hips / body-line need a visible ankle line. Front webcam (and a bed)
+  // usually does not have that, so these would be invented faults.
+  if (!frontish) {
+    if (has('body_line_deviation_mean') && blMean > 0.1) {
+      found.push({
+        code: 'HIPS_DROPPING',
+        evidence: `hips ${blMean.toFixed(2)} torso-lengths below the shoulder-ankle line`,
+      });
+    }
 
-  // Hips piked up.
-  if (has('body_line_deviation_mean') && blMean < -0.1) {
-    found.push({
-      code: 'HIPS_TOO_HIGH',
-      evidence: `hips ${Math.abs(blMean).toFixed(2)} torso-lengths above the shoulder-ankle line`,
-    });
-  }
+    if (has('body_line_deviation_mean') && blMean < -0.1) {
+      found.push({
+        code: 'HIPS_TOO_HIGH',
+        evidence: `hips ${Math.abs(blMean).toFixed(2)} torso-lengths above the shoulder-ankle line`,
+      });
+    }
 
-  // Line broke down during the rep.
-  if (has('body_line_deviation_range') && blRange > 0.15) {
-    found.push({
-      code: 'BODY_NOT_STRAIGHT',
-      evidence: `body line varied by ${blRange.toFixed(2)} torso-lengths during the rep`,
-    });
-  }
+    if (has('body_line_deviation_range') && blRange > 0.15) {
+      found.push({
+        code: 'BODY_NOT_STRAIGHT',
+        evidence: `body line varied by ${blRange.toFixed(2)} torso-lengths during the rep`,
+      });
+    }
 
-  if (has('knee_angle_deg_mean') && kneeAngle < 150) {
-    found.push({
-      code: 'KNEES_BENT',
-      evidence: `average knee angle ${kneeAngle.toFixed(0)}deg`,
-    });
+    if (has('knee_angle_deg_mean') && kneeAngle < 150) {
+      found.push({
+        code: 'KNEES_BENT',
+        evidence: `average knee angle ${kneeAngle.toFixed(0)}deg`,
+      });
+    }
   }
 
   // Elbow flare is only meaningful when we can see the shoulder angle, i.e.
@@ -123,7 +136,7 @@ export function detectIssues(
     });
   }
 
-  if (has('rom_elbow_deg') && romElbow < 30) {
+  if (!frontish && has('rom_elbow_deg') && romElbow < 30) {
     found.push({
       code: 'PARTIAL_RANGE',
       evidence: `elbow travel only ${romElbow.toFixed(0)}deg`,
@@ -150,11 +163,19 @@ export function detectIssues(
   );
 }
 
+export interface LiveCycleEvidence {
+  phaseExcursion: number;
+  angularExcursion: number;
+  depthExcursion: number;
+  shoulderYTravel: number;
+}
+
 export interface AssessmentInput {
   repIndex: number;
   frames: FrameFeatures[];
   view: 'side' | 'diagonal' | 'front';
   totalFramesInWindow?: number;
+  live?: LiveCycleEvidence;
 }
 
 export interface AssessmentDeps {
@@ -180,11 +201,29 @@ export function assessRep(
   }
 
   const { raw } = agg;
+  const live = input.live;
+  const frontish = input.view === 'front' || input.view === 'diagonal';
+  const elbowRom = raw.rom_elbow_deg;
+  const elbowUnreliable = frontish && (!Number.isFinite(elbowRom) || elbowRom < 35);
+
+  // Front webcam: 2D elbow often barely moves on a real push-up. Grade depth
+  // and ROM from the fused movement cycle instead of a 90° elbow target.
+  const depth = elbowUnreliable && live
+    ? depthScoreFromPhase(live.phaseExcursion)
+    : depthScore(raw.min_elbow_angle_deg);
+  const rom = elbowUnreliable && live
+    ? romScoreFromPhase(live.phaseExcursion)
+    : romScore(raw.rom_elbow_deg);
+
+  // Ankle-based body line is garbage in front view (feet off-screen / on a bed).
+  const alignmentRaw = alignmentScore(raw.body_line_deviation_max_abs);
+  const alignment =
+    frontish && (!Number.isFinite(alignmentRaw) || alignmentRaw < 25) ? Number.NaN : alignmentRaw;
 
   // --- component scores ---
   const components: ScoreComponents = {
-    depth: depthScore(raw.min_elbow_angle_deg),
-    alignment: alignmentScore(raw.body_line_deviation_max_abs),
+    depth,
+    alignment,
     tempo: tempoScore(
       raw.rep_duration_s,
       raw.descent_duration_s,
@@ -195,7 +234,7 @@ export function assessRep(
       raw.elbow_angular_velocity_mean,
       raw.jitter_score,
     ),
-    rom: romScore(raw.rom_elbow_deg),
+    rom,
   };
 
   const geo = geometryScore(components);
@@ -277,7 +316,7 @@ export function assessRep(
     : 0;
 
   // --- issue attribution ---
-  const issues = detectIssues(raw, input.view);
+  const issues = detectIssues(raw, input.view, live);
   const primaryIssue = issues.length ? issues[0].code : null;
   const secondaryIssues = issues.slice(1, 4).map((i) => i.code);
 

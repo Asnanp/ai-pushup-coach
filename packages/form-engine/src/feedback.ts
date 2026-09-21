@@ -33,30 +33,70 @@ export const ISSUE_COPY: Record<IssueCode, IssueCopy> = {
     detail: 'Your chest is not getting close enough to the floor at the bottom of the rep.',
     tip: 'Lower until your elbows reach about 90 degrees. Your chest should come within a fist of the floor.',
   },
+  SHALLOW_DEPTH: {
+    headline: 'Go a little lower',
+    detail: 'That attempt counted, but the bottom of the push-up was shallow.',
+    tip: 'Lower until your elbows are near 90 degrees.',
+  },
   HIPS_TOO_HIGH: {
     headline: 'Hips too high',
     detail: 'Your hips are piked up, so your body is not forming a straight line.',
     tip: 'Lower your hips until your shoulders, hips and ankles line up. Squeeze your glutes to hold it.',
+  },
+  HIP_PIKE: {
+    headline: 'Hips too high',
+    detail: 'Your hips are piked up, so your body is not forming a straight line.',
+    tip: 'Lower your hips until your shoulders, hips and ankles line up.',
   },
   HIPS_DROPPING: {
     headline: 'Hips are sagging',
     detail: 'Your hips are dropping toward the floor instead of staying in line with your body.',
     tip: 'Brace your core as if bracing for a punch, and keep your body in one straight line from head to heels.',
   },
+  HIP_SAG: {
+    headline: 'Hips are sagging',
+    detail: 'Your hips are dropping toward the floor instead of staying in line with your body.',
+    tip: 'Brace your core and keep a straight line from head to heels.',
+  },
   BODY_NOT_STRAIGHT: {
     headline: 'Keep your body in one line',
     detail: 'Your body line changed noticeably during the rep.',
     tip: 'Lock your core and glutes before you start, and keep that tension through the whole movement.',
+  },
+  BODY_ALIGNMENT: {
+    headline: 'Keep your body in one line',
+    detail: 'Alignment drifted during the rep.',
+    tip: 'Lock your core and glutes and keep that tension through the whole movement.',
   },
   ELBOW_FLARE: {
     headline: 'Elbows flaring out',
     detail: 'Your elbows are angled away from your body rather than tucked back.',
     tip: 'Tuck your elbows to roughly 45 degrees from your torso rather than straight out to the sides.',
   },
+  ARM_ASYMMETRY: {
+    headline: 'Even out your arms',
+    detail: 'One arm is working through a different range than the other.',
+    tip: 'Press evenly through both hands.',
+  },
   TOO_FAST: {
     headline: 'Slow down',
     detail: 'You are moving through the rep faster than you can control.',
     tip: 'Aim for about two seconds down and two seconds up. Control beats speed for building strength.',
+  },
+  TEMPO_TOO_FAST: {
+    headline: 'Slow down',
+    detail: 'That rep was faster than you can control.',
+    tip: 'Take about two seconds down and two seconds up.',
+  },
+  TEMPO_TOO_SLOW: {
+    headline: 'Keep a steady tempo',
+    detail: 'The rep stalled long enough to lose the movement pattern.',
+    tip: 'Move continuously, pausing only briefly at the top or bottom.',
+  },
+  INCOMPLETE_LOCKOUT: {
+    headline: 'Finish at the top',
+    detail: 'Your arms did not fully straighten at the top of the rep.',
+    tip: 'Press all the way up until your elbows lock out.',
   },
   KNEES_BENT: {
     headline: 'Legs are bending',

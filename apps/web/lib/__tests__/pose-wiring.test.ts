@@ -44,6 +44,13 @@ describe('pose frame wiring', () => {
     });
   }
 
+  it('does not leave the GO overlay up for the whole workout', () => {
+    const source = readFileSync(path.join(APP_DIR, 'workout/page.tsx'), 'utf8');
+    expect(source).toMatch(/elapsedSeconds/);
+    expect(source).toMatch(/setCountdown\(null\)/);
+    expect(source).toContain('Begin Push-Ups!');
+  });
+
   it('WorkoutSession exposes onPoseFrame as the documented entry point', () => {
     const source = readFileSync(
       path.resolve(__dirname, '..', 'workout-session.ts'),

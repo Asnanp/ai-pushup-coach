@@ -31,7 +31,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: ['/', '/tips', '/about', '/challenge'],
-      disallow: ['/workout', '/progress'],
+      disallow: ['/workout', '/progress', '/lab'],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

@@ -37,7 +37,7 @@ import {
   maskImplausibleAngle,
 } from './rep-counter';
 
-export const CALIBRATION_REPS_REQUIRED = 2;
+export const CALIBRATION_REPS_REQUIRED = 1;
 export const MIN_CALIBRATION_ROM_DEG = 18;
 
 export interface MotionCalibratorOptions {
@@ -150,8 +150,14 @@ export class MotionCalibrator {
     }
 
     const remaining = this.requiredReps - this.completedRepsRom.length;
-    const repWord = remaining === 1 ? '1 more push-up' : `${remaining} push-ups`;
-    return this.getState(`Perform ${repWord} so we can learn your movement range.`);
+    if (remaining <= 0) {
+      return this.getState('Calibration complete! Ready to workout.');
+    }
+    return this.getState(
+      remaining === 1
+        ? 'Do one push-up so I can learn your movement. It will count.'
+        : `Perform ${remaining} push-ups so we can learn your movement range.`,
+    );
   }
 
   private trackCalibrationRep(angle: number): void {

@@ -23,6 +23,7 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import {
   clearLeaderboard,
+  fetchLeaderboardMerged,
   getDeviceKey,
   isRemoteEnabled,
   loadLeaderboard,
@@ -65,14 +66,18 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     const key = getDeviceKey();
-    // loadLeaderboard() already applies rankEntries(); re-applying the shared
-    // rule here keeps this page's ordering explicitly tied to the store's.
-    const board = rankEntries(loadLeaderboard());
-    const sessions = loadSessions();
-
     setDeviceKey(key);
-    setOwnIds(ownEntryIds(board, sessions));
-    setEntries(board);
+    let cancelled = false;
+    void fetchLeaderboardMerged().then((board) => {
+      if (cancelled) return;
+      const ranked = rankEntries(board);
+      const sessions = loadSessions();
+      setOwnIds(ownEntryIds(ranked, sessions));
+      setEntries(ranked);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const stats = useMemo(() => summarise(entries ?? [], ownIds), [entries, ownIds]);
@@ -111,7 +116,7 @@ export default function LeaderboardPage() {
             Challenge results — 30 seconds of maximum valid push-ups.
             {isRemoteEnabled() ? (
               <span className="ml-1 text-ink-faint">
-                Cloud sync is configured; this view reads the local copy.
+                Live board from the cloud.
               </span>
             ) : (
               <span className="ml-1 text-ink-faint">Stored locally on this device.</span>

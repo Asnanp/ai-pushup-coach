@@ -65,6 +65,11 @@ export default function WorkoutPage() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [finishedRecords, setFinishedRecords] = useState<WorkoutRepRecord[]>([]);
 
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('debug') === '1') setShowDebug(true);
+  }, []);
+
   const failWith = useCallback((p: CaptureError) => {
     setError(p);
   }, []);
@@ -180,6 +185,7 @@ export default function WorkoutPage() {
     if (!s) return;
     s.start();
     setPhase('active');
+    window.setTimeout(() => setCountdown(null), 900);
   }, []);
 
   const handleEnd = useCallback(async () => {
@@ -267,7 +273,20 @@ export default function WorkoutPage() {
 
           {/* Development Debug Diagnostics Overlay (Spec §29) */}
           {showDebug && snapshot?.diagnostics && (
-            <DevDiagnosticsOverlay diagnostics={snapshot.diagnostics} />
+            <DevDiagnosticsOverlay
+              diagnostics={snapshot.diagnostics}
+              onExport={() => {
+                const json = sessionRef.current?.getV3Engine().traces.exportJSON();
+                if (!json) return;
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pushup-live-trace-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            />
           )}
 
           {phase === 'idle' && !error && (
@@ -292,8 +311,10 @@ export default function WorkoutPage() {
             </div>
           )}
 
-          {/* Hands-Free Auto-Start Countdown Overlay */}
-          {countdown !== null && (
+          {/* Hands-Free Auto-Start Countdown Overlay — never stay up after counting begins */}
+          {countdown !== null &&
+            (phase === 'calibrating' ||
+              (countdown === 0 && (snapshot?.elapsedSeconds ?? 0) < 1.1)) && (
             <div
               className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-card bg-base/65 backdrop-blur-sm animate-fade-in"
               role="status"
@@ -490,14 +511,20 @@ export default function WorkoutPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function DevDiagnosticsOverlay({ diagnostics }: { diagnostics: DevDiagnosticsSnapshot }) {
+function DevDiagnosticsOverlay({
+  diagnostics,
+  onExport,
+}: {
+  diagnostics: DevDiagnosticsSnapshot;
+  onExport?: () => void;
+}) {
   return (
     <div
       className="absolute top-3 left-3 z-30 max-w-xs rounded-card border border-accent/40 bg-base/90 p-3 backdrop-blur font-mono text-[10px] text-ink shadow-lg"
       aria-label="Development diagnostics"
     >
       <div className="mb-1.5 flex items-center justify-between border-b border-base-border pb-1 font-bold text-accent">
-        <span>V2 POSE DIAGNOSTICS</span>
+        <span>V3 LIVE DIAGNOSTICS</span>
         <span className="rounded bg-accent/20 px-1 text-[9px]">{diagnostics.fsmState}</span>
       </div>
       <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
@@ -528,6 +555,15 @@ function DevDiagnosticsOverlay({ diagnostics }: { diagnostics: DevDiagnosticsSna
       <div className="mt-1.5 border-t border-base-border pt-1 text-[9px] text-ink-muted">
         {diagnostics.recalibrationStatus}
       </div>
+      {onExport && (
+        <button
+          type="button"
+          className="mt-2 w-full rounded border border-accent/40 px-2 py-1 text-[10px] text-accent"
+          onClick={onExport}
+        >
+          Export debug JSON
+        </button>
+      )}
     </div>
   );
 }

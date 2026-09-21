@@ -44,7 +44,7 @@ export default function HomePage() {
           </div>
 
           <p className="mt-5 text-xs text-ink-faint">
-            Camera frames are analyzed for pose estimation and are not stored.
+            Video is processed on this device and is not stored.
           </p>
         </div>
 

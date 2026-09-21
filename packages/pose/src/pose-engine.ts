@@ -28,6 +28,7 @@ import {
 import type { Landmark, PoseFrame } from '@ai-pushup-coach/types';
 import { OneEuroFilter } from './one-euro';
 import { computeSideVisibility, chooseActiveSide } from './side-selection';
+import { evaluatePoseCapability } from './pose-capability';
 
 /**
  * Where the MediaPipe runtime assets live, tried in order.
@@ -324,14 +325,29 @@ export class PoseEngine {
 
     const activeIdx = this.activeSide ?? chosen.side;
     const activeScore = activeIdx === 'left' ? sideVis.left : sideVis.right;
-    const valid = activeScore >= MIN_VISIBILITY;
+    const capability = evaluatePoseCapability(landmarks);
+    // Counting does not require ankles. A missing foot must not zero the live counter.
+    const valid = capability.canCountRep || activeScore >= MIN_VISIBILITY;
+
+    const worldRaw = result.worldLandmarks?.[0];
+    const worldLandmarks: Landmark[] | undefined =
+      worldRaw && worldRaw.length >= 25
+        ? worldRaw.map((lm) => ({
+            x: lm.x,
+            y: lm.y,
+            z: lm.z ?? 0,
+            visibility: lm.visibility ?? 1,
+          }))
+        : undefined;
 
     return {
       timestamp,
       landmarks,
+      worldLandmarks,
       side: activeIdx,
       valid,
       sideVisibility: activeScore,
+      capability,
     };
   }
 }

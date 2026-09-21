@@ -85,17 +85,20 @@ export function CalibrationPanel({
     if (autoStartFiredRef.current || countdown !== null) return;
 
     autoStartFiredRef.current = true;
+    session?.freezeLearning();
     setCountdown(3);
     session?.getVoiceCoach().speak('Ready. Starting in three...', true);
   }, [ready, autoStartEnabled, countdown, session]);
 
-  // Countdown timer loop
+  // Countdown timer loop. GO is shown briefly, then cleared so it cannot
+  // sit on the camera for the rest of the set.
   useEffect(() => {
     if (countdown === null) return;
     if (countdown <= 0) {
       session?.getVoiceCoach().speak('Go!', true);
       onStartCountingRef.current();
-      return;
+      const clear = window.setTimeout(() => setCountdown(null), 800);
+      return () => window.clearTimeout(clear);
     }
 
     const timer = window.setTimeout(() => {
@@ -149,8 +152,8 @@ export function CalibrationPanel({
             {ready
               ? 'Personal range of motion calibrated.'
               : calibPhase === 'MOVEMENT_CALIBRATION'
-                ? 'Perform 2 normal push-ups so we can learn your movement range.'
-                : 'Position yourself squarely in view of the camera.'}
+                ? 'Hold the top position, then do a normal push-up so I can learn your movement.'
+                : 'Hold the top of a push-up. Upper body in view is enough.'}
           </p>
         </div>
         <span className="text-xs text-ink-faint">
@@ -207,7 +210,7 @@ export function CalibrationPanel({
             </span>
           </div>
           <p className="mt-1 text-xs text-ink-muted">
-            {promptMsg || 'Perform 2 normal push-ups so we can learn your movement range. Do not hold still.'}
+            {promptMsg || 'Hold the top, then start when you are ready. The first push-up is used, not discarded.'}
           </p>
         </div>
       )}

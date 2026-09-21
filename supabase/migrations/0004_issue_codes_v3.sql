@@ -1,0 +1,9 @@
+-- V3 form issue codes. Additive enum values only.
+alter type public.issue_code add value if not exists 'SHALLOW_DEPTH';
+alter type public.issue_code add value if not exists 'HIP_PIKE';
+alter type public.issue_code add value if not exists 'HIP_SAG';
+alter type public.issue_code add value if not exists 'BODY_ALIGNMENT';
+alter type public.issue_code add value if not exists 'ARM_ASYMMETRY';
+alter type public.issue_code add value if not exists 'TEMPO_TOO_FAST';
+alter type public.issue_code add value if not exists 'TEMPO_TOO_SLOW';
+alter type public.issue_code add value if not exists 'INCOMPLETE_LOCKOUT';

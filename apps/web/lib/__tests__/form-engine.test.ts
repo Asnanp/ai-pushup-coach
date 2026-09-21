@@ -200,6 +200,17 @@ describe('detectIssues', () => {
     expect(issue.evidence).toContain('128');
     expect(issue.evidence.length).toBeGreaterThan(0);
   });
+
+  it('does not call a real front-camera push-up shallow just because 2D elbow stayed high', () => {
+    const found = detectIssues(
+      { min_elbow_angle_deg: 148, rom_elbow_deg: 12, knee_angle_deg_mean: 120 },
+      'front',
+      { phaseExcursion: 0.62, angularExcursion: 12, depthExcursion: 0.08, shoulderYTravel: 0.12 },
+    );
+    expect(found.map((f) => f.code)).not.toContain('INCOMPLETE_DEPTH');
+    expect(found.map((f) => f.code)).not.toContain('KNEES_BENT');
+    expect(found.map((f) => f.code)).not.toContain('PARTIAL_RANGE');
+  });
 });
 
 describe('assessRep', () => {
@@ -239,6 +250,30 @@ describe('assessRep', () => {
     expect(result.primaryIssue).toBe('INCOMPLETE_DEPTH');
     expect(result.secondaryIssues).toContain('HIPS_DROPPING');
     expect(result.secondaryIssues).toContain('KNEES_BENT');
+  });
+
+  it('counts a front-view cycle as valid when fused depth is real even if 2D elbow barely moved', () => {
+    const frames = repWindow(150, 25, { bodyLineDeviation: 0.4, kneeAngle: 100 });
+    const result = assessRep(
+      {
+        repIndex: 1,
+        frames,
+        view: 'front',
+        totalFramesInWindow: 25,
+        live: {
+          phaseExcursion: 0.7,
+          angularExcursion: 14,
+          depthExcursion: 0.1,
+          shoulderYTravel: 0.14,
+        },
+      },
+      { model: null, decisionThreshold: 0.5 },
+    );
+    expect(result.valid).toBe(true);
+    expect(result.label).toBe('good');
+    expect(result.components.depth).toBeGreaterThan(70);
+    expect(result.components.rom).toBeGreaterThan(70);
+    expect(result.primaryIssue).not.toBe('INCOMPLETE_DEPTH');
   });
 
   it('reports unknown rather than guessing when no pose frames are usable', () => {

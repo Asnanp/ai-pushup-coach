@@ -44,7 +44,7 @@ import {
   YAxis,
   type TooltipProps,
 } from 'recharts';
-import { loadSessions, isRemoteEnabled, type StoredSession } from '@/lib/session-store';
+import { fetchSessionsMerged, isRemoteEnabled, type StoredSession } from '@/lib/session-store';
 import {
   formatClock,
   formatDateShort,
@@ -78,9 +78,14 @@ const AXIS_PROPS = {
 export default function ProgressPage() {
   const [sessions, setSessions] = useState<StoredSession[] | null>(null);
 
-  // Client-only read. Anything rendered before this resolves is the skeleton.
   useEffect(() => {
-    setSessions(loadSessions());
+    let cancelled = false;
+    void fetchSessionsMerged().then((rows) => {
+      if (!cancelled) setSessions(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const stats = useMemo(() => summarise(sessions ?? []), [sessions]);
@@ -133,7 +138,7 @@ export default function ProgressPage() {
           <p className="mt-1 text-sm text-ink-muted">
             Your workout history and trends.
             {isRemoteEnabled() ? (
-              <span className="ml-1 text-ink-faint">Synced to your account.</span>
+              <span className="ml-1 text-ink-faint">Cloud history is on for this device.</span>
             ) : (
               <span className="ml-1 text-ink-faint">Stored locally on this device.</span>
             )}

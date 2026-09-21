@@ -1,32 +1,30 @@
 /**
  * packages/rep-counter/src/signal-extractors.ts
  *
- * Agent 4 — REP COUNTER ENGINEER & Agent 2 — FRONT-VIEW RESEARCH ENGINEER
+ * View-specific signal extraction. V3 fills a rich RepMotionSignal so the
+ * fusion engine can survive a bad 2D elbow (typical front webcam).
  *
- * View-specific signal extraction behind a unified RepMotionSignal contract.
- * - SideRepSignalExtractor: Dominant side elbow angle + sagittal alignment
- * - FrontRepSignalExtractor: Bilateral arm fusion (left + right) + vertical centroid motion + depth
- * - DiagonalRepSignalExtractor: Perspective-weighted bilateral fusion
+ * Confirmed live-path bugs this file used to carry:
+ *   1. 3D angle z-component computed as (c.z - c.z) === 0
+ *   2. diagonal worldDepthMotion operator precedence (z ?? 0 + other)
  */
 
 import type { Landmark, RepMotionSignal, V2CameraView } from '@ai-pushup-coach/types';
 import {
-  L_ANKLE,
   L_ELBOW,
   L_HIP,
   L_SHOULDER,
   L_WRIST,
-  R_ANKLE,
   R_ELBOW,
   R_HIP,
   R_SHOULDER,
   R_WRIST,
   angleDeg,
+  angleDeg3D,
   toVec,
   vlen,
   vmid,
   vsub,
-  type Vec2,
 } from '@ai-pushup-coach/biomechanics';
 
 import {
@@ -40,96 +38,185 @@ export interface IRepSignalExtractor {
   reset(): void;
 }
 
-/**
- * 3D angle between joints in world landmark space (meters) if available.
- */
-function angle3D(a: Landmark, b: Landmark, c: Landmark): number {
-  const ba = { x: a.x - b.x, y: a.y - b.y, z: (a.z ?? 0) - (b.z ?? 0) };
-  const bc = { x: c.x - b.x, y: c.y - b.y, z: (c.z ?? 0) - (c.z ?? 0) };
-
-  const normBA = Math.hypot(ba.x, ba.y, ba.z);
-  const normBC = Math.hypot(bc.x, bc.y, bc.z);
-  if (normBA < 1e-6 || normBC < 1e-6) return Number.NaN;
-
-  const dot = ba.x * bc.x + ba.y * bc.y + ba.z * bc.z;
-  const cos = Math.max(-1, Math.min(1, dot / (normBA * normBC)));
-  return (Math.acos(cos) * 180) / Math.PI;
+function vis(lm: Landmark | undefined): number {
+  return lm?.visibility ?? 0;
 }
 
-// ---------------------------------------------------------------------------
-// SIDE VIEW EXTRACTOR
-// ---------------------------------------------------------------------------
+function emptySignal(t: number, view: V2CameraView): RepMotionSignal {
+  return {
+    timestamp: t,
+    phaseEvidence: Number.NaN,
+    elbowLeft: Number.NaN,
+    elbowRight: Number.NaN,
+    elbowCombined: Number.NaN,
+    shoulderMotion: Number.NaN,
+    hipMotion: Number.NaN,
+    worldDepthMotion: Number.NaN,
+    poseConfidence: 0,
+    view,
+    elbowLeft2D: Number.NaN,
+    elbowRight2D: Number.NaN,
+    elbowLeft3D: Number.NaN,
+    elbowRight3D: Number.NaN,
+    shoulderCenterX: Number.NaN,
+    shoulderCenterY: Number.NaN,
+    shoulderCenterZ: Number.NaN,
+    hipCenterX: Number.NaN,
+    hipCenterY: Number.NaN,
+    hipCenterZ: Number.NaN,
+    shoulderWorldZ: Number.NaN,
+    torsoWorldZ: Number.NaN,
+    shoulderWristDist: Number.NaN,
+    centroidY: Number.NaN,
+    leftVisibility: 0,
+    rightVisibility: 0,
+  };
+}
+
+function combineElbows(
+  left: number,
+  right: number,
+  leftVis: number,
+  rightVis: number,
+): number {
+  const leftOk = Number.isFinite(left) && leftVis >= 0.25;
+  const rightOk = Number.isFinite(right) && rightVis >= 0.25;
+  if (leftOk && rightOk) {
+    const total = leftVis + rightVis;
+    return (left * leftVis + right * rightVis) / total;
+  }
+  if (leftOk) return left;
+  if (rightOk) return right;
+  return Number.NaN;
+}
+
+function dist3(a: Landmark, b: Landmark): number {
+  return Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
+}
+
+/**
+ * Shared landmark → rich signal. View only changes which arm is primary for
+ * the V2 `phaseEvidence` scalar (kept so existing replay tests still compile).
+ */
+export function extractRichMotion(
+  landmarks: Landmark[],
+  timestamp: number,
+  view: V2CameraView,
+  worldLandmarks?: Landmark[],
+  baseline?: { shoulderY: number; torsoHeight: number },
+): RepMotionSignal {
+  if (!landmarks || landmarks.length < 25) return emptySignal(timestamp, view);
+
+  const ls = landmarks[L_SHOULDER];
+  const rs = landmarks[R_SHOULDER];
+  const le = landmarks[L_ELBOW];
+  const re = landmarks[R_ELBOW];
+  const lw = landmarks[L_WRIST];
+  const rw = landmarks[R_WRIST];
+  const lh = landmarks[L_HIP];
+  const rh = landmarks[R_HIP];
+
+  const left2D = maskImplausibleAngle(angleDeg(toVec(ls), toVec(le), toVec(lw)));
+  const right2D = maskImplausibleAngle(angleDeg(toVec(rs), toVec(re), toVec(rw)));
+
+  let left3D = Number.NaN;
+  let right3D = Number.NaN;
+  const world = worldLandmarks && worldLandmarks.length >= 25 ? worldLandmarks : null;
+  const src3 = world ?? landmarks;
+  left3D = maskImplausibleAngle(angleDeg3D(src3[L_SHOULDER], src3[L_ELBOW], src3[L_WRIST]));
+  right3D = maskImplausibleAngle(angleDeg3D(src3[R_SHOULDER], src3[R_ELBOW], src3[R_WRIST]));
+
+  // Prefer a finite 3D angle when it is anatomically plausible; otherwise 2D.
+  const blend = (a2: number, a3: number): number => {
+    if (Number.isFinite(a3) && a3 >= ELBOW_ANGLE_MIN_PLAUSIBLE && a3 <= ELBOW_ANGLE_MAX_PLAUSIBLE) {
+      if (Number.isFinite(a2)) return 0.7 * a3 + 0.3 * a2;
+      return a3;
+    }
+    return a2;
+  };
+
+  const leftAngle = blend(left2D, left3D);
+  const rightAngle = blend(right2D, right3D);
+
+  const leftVis = Math.min(vis(ls), vis(le), vis(lw));
+  const rightVis = Math.min(vis(rs), vis(re), vis(rw));
+  const combinedElbow = combineElbows(leftAngle, rightAngle, leftVis, rightVis);
+
+  const shMid = vmid(toVec(ls), toVec(rs));
+  const hipMid = vmid(toVec(lh), toVec(rh));
+  const torsoHeight = Math.max(1e-4, vlen(vsub(shMid, hipMid)));
+
+  const shoulderZ = ((ls.z ?? 0) + (rs.z ?? 0)) / 2;
+  const hipZ = ((lh.z ?? 0) + (rh.z ?? 0)) / 2;
+  const worldShZ = world
+    ? ((world[L_SHOULDER].z ?? 0) + (world[R_SHOULDER].z ?? 0)) / 2
+    : shoulderZ;
+  const worldHipZ = world
+    ? ((world[L_HIP].z ?? 0) + (world[R_HIP].z ?? 0)) / 2
+    : hipZ;
+  const torsoWorldZ = worldShZ - worldHipZ;
+
+  const distL = dist3(ls, lw);
+  const distR = dist3(rs, rw);
+  let shoulderWristDist = Number.NaN;
+  if (leftVis >= 0.25 && rightVis >= 0.25) shoulderWristDist = (distL + distR) / 2;
+  else if (leftVis >= 0.25) shoulderWristDist = distL;
+  else if (rightVis >= 0.25) shoulderWristDist = distR;
+
+  const centroidY = (shMid.y + hipMid.y) / 2;
+
+  let phaseEvidence = combinedElbow;
+  if (Number.isFinite(combinedElbow) && baseline) {
+    const shoulderDescentRel = (shMid.y - baseline.shoulderY) / Math.max(baseline.torsoHeight, torsoHeight);
+    const verticalEquivalentAngle = Math.max(50, Math.min(175, 160 - shoulderDescentRel * 250));
+    const isFront = view === 'VIEW_FRONT';
+    const elbowW = isFront ? 0.7 : 0.85;
+    phaseEvidence = elbowW * combinedElbow + (1 - elbowW) * verticalEquivalentAngle;
+  }
+
+  return {
+    timestamp,
+    phaseEvidence,
+    elbowLeft: leftAngle,
+    elbowRight: rightAngle,
+    elbowCombined: combinedElbow,
+    shoulderMotion: shMid.y,
+    hipMotion: hipMid.y,
+    worldDepthMotion: worldShZ,
+    poseConfidence: (leftVis + rightVis) / 2,
+    view,
+    elbowLeft2D: left2D,
+    elbowRight2D: right2D,
+    elbowLeft3D: left3D,
+    elbowRight3D: right3D,
+    shoulderCenterX: shMid.x,
+    shoulderCenterY: shMid.y,
+    shoulderCenterZ: shoulderZ,
+    hipCenterX: hipMid.x,
+    hipCenterY: hipMid.y,
+    hipCenterZ: hipZ,
+    shoulderWorldZ: worldShZ,
+    torsoWorldZ,
+    shoulderWristDist,
+    centroidY,
+    leftVisibility: leftVis,
+    rightVisibility: rightVis,
+  };
+}
 
 export class SideRepSignalExtractor implements IRepSignalExtractor {
   constructor(private readonly dominantSide: 'left' | 'right' = 'left') {}
 
   extract(landmarks: Landmark[], timestamp: number, worldLandmarks?: Landmark[]): RepMotionSignal {
-    if (!landmarks || landmarks.length < 25) {
-      return this.emptySignal(timestamp, this.dominantSide === 'left' ? 'VIEW_SIDE_LEFT' : 'VIEW_SIDE_RIGHT');
-    }
-
-    const isLeft = this.dominantSide === 'left';
-    const shIdx = isLeft ? L_SHOULDER : R_SHOULDER;
-    const elIdx = isLeft ? L_ELBOW : R_ELBOW;
-    const wrIdx = isLeft ? L_WRIST : R_WRIST;
-    const hpIdx = isLeft ? L_HIP : R_HIP;
-
-    const oShIdx = isLeft ? R_SHOULDER : L_SHOULDER;
-    const oElIdx = isLeft ? R_ELBOW : L_ELBOW;
-    const oWrIdx = isLeft ? R_WRIST : L_WRIST;
-
-    const sh = landmarks[shIdx];
-    const el = landmarks[elIdx];
-    const wr = landmarks[wrIdx];
-    const hp = landmarks[hpIdx];
-
-    const oSh = landmarks[oShIdx];
-    const oEl = landmarks[oElIdx];
-    const oWr = landmarks[oWrIdx];
-
-    const elAngle = maskImplausibleAngle(angleDeg(toVec(sh), toVec(el), toVec(wr)));
-    const oppAngle = maskImplausibleAngle(angleDeg(toVec(oSh), toVec(oEl), toVec(oWr)));
-
-    const leftAngle = isLeft ? elAngle : oppAngle;
-    const rightAngle = isLeft ? oppAngle : elAngle;
-
-    const vis = Math.min(sh.visibility ?? 1, el.visibility ?? 1, wr.visibility ?? 1);
-
-    return {
-      timestamp,
-      phaseEvidence: elAngle,
-      elbowLeft: leftAngle,
-      elbowRight: rightAngle,
-      elbowCombined: elAngle,
-      shoulderMotion: sh.y,
-      hipMotion: hp.y,
-      worldDepthMotion: sh.z ?? 0,
-      poseConfidence: vis,
-      view: isLeft ? 'VIEW_SIDE_LEFT' : 'VIEW_SIDE_RIGHT',
-    };
+    const view: V2CameraView = this.dominantSide === 'left' ? 'VIEW_SIDE_LEFT' : 'VIEW_SIDE_RIGHT';
+    const signal = extractRichMotion(landmarks, timestamp, view, worldLandmarks);
+    const primary = this.dominantSide === 'left' ? signal.elbowLeft : signal.elbowRight;
+    if (Number.isFinite(primary)) signal.phaseEvidence = primary;
+    return signal;
   }
 
   reset(): void {}
-
-  private emptySignal(t: number, view: V2CameraView): RepMotionSignal {
-    return {
-      timestamp: t,
-      phaseEvidence: Number.NaN,
-      elbowLeft: Number.NaN,
-      elbowRight: Number.NaN,
-      elbowCombined: Number.NaN,
-      shoulderMotion: Number.NaN,
-      hipMotion: Number.NaN,
-      worldDepthMotion: Number.NaN,
-      poseConfidence: 0,
-      view,
-    };
-  }
 }
-
-// ---------------------------------------------------------------------------
-// FRONT VIEW EXTRACTOR (BILATERAL + DEPTH)
-// ---------------------------------------------------------------------------
 
 export class FrontRepSignalExtractor implements IRepSignalExtractor {
   private baselineShoulderY: number | null = null;
@@ -137,215 +224,53 @@ export class FrontRepSignalExtractor implements IRepSignalExtractor {
 
   extract(landmarks: Landmark[], timestamp: number, worldLandmarks?: Landmark[]): RepMotionSignal {
     if (!landmarks || landmarks.length < 25) {
-      return this.emptySignal(timestamp);
+      return extractRichMotion(landmarks, timestamp, 'VIEW_FRONT', worldLandmarks);
     }
-
     const ls = landmarks[L_SHOULDER];
     const rs = landmarks[R_SHOULDER];
-    const le = landmarks[L_ELBOW];
-    const re = landmarks[R_ELBOW];
-    const lw = landmarks[L_WRIST];
-    const rw = landmarks[R_WRIST];
     const lh = landmarks[L_HIP];
     const rh = landmarks[R_HIP];
-
-    // Compute left and right 2D elbow angles
-    let leftAngle2D = angleDeg(toVec(ls), toVec(le), toVec(lw));
-    let rightAngle2D = angleDeg(toVec(rs), toVec(re), toVec(rw));
-
-    // Also check world landmarks if available (in 3D, immune to foreshortening)
-    if (worldLandmarks && worldLandmarks.length >= 25) {
-      const wLs = worldLandmarks[L_SHOULDER];
-      const wRs = worldLandmarks[R_SHOULDER];
-      const wLe = worldLandmarks[L_ELBOW];
-      const wRe = worldLandmarks[R_ELBOW];
-      const wLw = worldLandmarks[L_WRIST];
-      const wRw = worldLandmarks[R_WRIST];
-
-      const left3D = angle3D(wLs, wLe, wLw);
-      const right3D = angle3D(wRs, wRe, wRw);
-
-      if (Number.isFinite(left3D) && left3D >= ELBOW_ANGLE_MIN_PLAUSIBLE && left3D <= ELBOW_ANGLE_MAX_PLAUSIBLE) {
-        // Blend 2D and 3D with priority on 3D stability
-        leftAngle2D = 0.6 * left3D + 0.4 * leftAngle2D;
-      }
-      if (Number.isFinite(right3D) && right3D >= ELBOW_ANGLE_MIN_PLAUSIBLE && right3D <= ELBOW_ANGLE_MAX_PLAUSIBLE) {
-        rightAngle2D = 0.6 * right3D + 0.4 * rightAngle2D;
-      }
-    }
-
-    const leftAngle = maskImplausibleAngle(leftAngle2D);
-    const rightAngle = maskImplausibleAngle(rightAngle2D);
-
-    const leftVis = Math.min(ls.visibility ?? 1, le.visibility ?? 1, lw.visibility ?? 1);
-    const rightVis = Math.min(rs.visibility ?? 1, re.visibility ?? 1, rw.visibility ?? 1);
-
-    // Bilateral combination: weighted by visibility and plausibility
-    let combinedElbow = Number.NaN;
-    const leftOk = Number.isFinite(leftAngle) && leftVis >= 0.25;
-    const rightOk = Number.isFinite(rightAngle) && rightVis >= 0.25;
-
-    if (leftOk && rightOk) {
-      // Both arms visible: weighted average
-      const totalVis = leftVis + rightVis;
-      combinedElbow = (leftAngle * leftVis + rightAngle * rightVis) / totalVis;
-    } else if (leftOk) {
-      combinedElbow = leftAngle;
-    } else if (rightOk) {
-      combinedElbow = rightAngle;
-    }
-
-    // Midline vertical translation
     const shMid = vmid(toVec(ls), toVec(rs));
     const hipMid = vmid(toVec(lh), toVec(rh));
     const torsoHeight = Math.max(1e-4, vlen(vsub(shMid, hipMid)));
-
     if (this.baselineTorsoHeight === null || this.baselineShoulderY === null) {
       this.baselineTorsoHeight = torsoHeight;
       this.baselineShoulderY = shMid.y;
     }
-
-    // In front view, when going down, shoulder mid moves down in the camera frame (increasing Y)
-    // Normalized shoulder descent relative to torso length
-    const shoulderDescentRel = (shMid.y - this.baselineShoulderY) / this.baselineTorsoHeight;
-
-    // Depth displacement in Z
-    const shoulderDepth = ((ls.z ?? 0) + (rs.z ?? 0)) / 2;
-
-    // Phase evidence combines bilateral elbow flexion with vertical motion
-    let phaseEvidence = combinedElbow;
-    if (Number.isFinite(combinedElbow) && Number.isFinite(shoulderDescentRel)) {
-      // Map vertical descent (typically 0.0 to 0.4 of torso height) to equivalent elbow angle deduction
-      // 0.35 torso descent roughly equals full 90 deg drop (160 -> 70 deg)
-      const verticalEquivalentAngle = Math.max(50, Math.min(175, 160 - shoulderDescentRel * 250));
-      // Front phase evidence blends bilateral elbow with vertical centroid
-      phaseEvidence = 0.75 * combinedElbow + 0.25 * verticalEquivalentAngle;
-    }
-
-    const poseConfidence = (leftVis + rightVis) / 2;
-
-    return {
-      timestamp,
-      phaseEvidence,
-      elbowLeft: leftAngle,
-      elbowRight: rightAngle,
-      elbowCombined: combinedElbow,
-      shoulderMotion: shMid.y,
-      hipMotion: hipMid.y,
-      worldDepthMotion: shoulderDepth,
-      poseConfidence,
-      view: 'VIEW_FRONT',
-    };
+    return extractRichMotion(landmarks, timestamp, 'VIEW_FRONT', worldLandmarks, {
+      shoulderY: this.baselineShoulderY,
+      torsoHeight: this.baselineTorsoHeight,
+    });
   }
 
   reset(): void {
     this.baselineShoulderY = null;
     this.baselineTorsoHeight = null;
   }
-
-  private emptySignal(t: number): RepMotionSignal {
-    return {
-      timestamp: t,
-      phaseEvidence: Number.NaN,
-      elbowLeft: Number.NaN,
-      elbowRight: Number.NaN,
-      elbowCombined: Number.NaN,
-      shoulderMotion: Number.NaN,
-      hipMotion: Number.NaN,
-      worldDepthMotion: Number.NaN,
-      poseConfidence: 0,
-      view: 'VIEW_FRONT',
-    };
-  }
 }
-
-// ---------------------------------------------------------------------------
-// DIAGONAL VIEW EXTRACTOR
-// ---------------------------------------------------------------------------
 
 export class DiagonalRepSignalExtractor implements IRepSignalExtractor {
   constructor(private readonly nearSide: 'left' | 'right' = 'left') {}
 
   extract(landmarks: Landmark[], timestamp: number, worldLandmarks?: Landmark[]): RepMotionSignal {
-    if (!landmarks || landmarks.length < 25) {
-      return this.emptySignal(timestamp);
+    const view: V2CameraView = this.nearSide === 'left' ? 'VIEW_DIAGONAL_LEFT' : 'VIEW_DIAGONAL_RIGHT';
+    const signal = extractRichMotion(landmarks, timestamp, view, worldLandmarks);
+    const near = this.nearSide === 'left' ? signal.elbowLeft : signal.elbowRight;
+    const far = this.nearSide === 'left' ? signal.elbowRight : signal.elbowLeft;
+    if (Number.isFinite(near) && Number.isFinite(far)) {
+      signal.phaseEvidence = 0.75 * near + 0.25 * far;
+      signal.elbowCombined = signal.phaseEvidence;
+    } else if (Number.isFinite(near)) {
+      signal.phaseEvidence = near;
+    } else if (Number.isFinite(far)) {
+      signal.phaseEvidence = far;
     }
-
-    const isNearLeft = this.nearSide === 'left';
-    const nearSh = isNearLeft ? L_SHOULDER : R_SHOULDER;
-    const nearEl = isNearLeft ? L_ELBOW : R_ELBOW;
-    const nearWr = isNearLeft ? L_WRIST : R_WRIST;
-
-    const farSh = isNearLeft ? R_SHOULDER : L_SHOULDER;
-    const farEl = isNearLeft ? R_ELBOW : L_ELBOW;
-    const farWr = isNearLeft ? R_WRIST : L_WRIST;
-
-    const nearAngle = maskImplausibleAngle(
-      angleDeg(toVec(landmarks[nearSh]), toVec(landmarks[nearEl]), toVec(landmarks[nearWr])),
-    );
-    const farAngle = maskImplausibleAngle(
-      angleDeg(toVec(landmarks[farSh]), toVec(landmarks[farEl]), toVec(landmarks[farWr])),
-    );
-
-    const nearVis = Math.min(
-      landmarks[nearSh].visibility ?? 1,
-      landmarks[nearEl].visibility ?? 1,
-      landmarks[nearWr].visibility ?? 1,
-    );
-    const farVis = Math.min(
-      landmarks[farSh].visibility ?? 1,
-      landmarks[farEl].visibility ?? 1,
-      landmarks[farWr].visibility ?? 1,
-    );
-
-    let combined = nearAngle;
-    if (Number.isFinite(nearAngle) && Number.isFinite(farAngle)) {
-      // 75% near arm, 25% far arm
-      combined = 0.75 * nearAngle + 0.25 * farAngle;
-    } else if (Number.isFinite(farAngle)) {
-      combined = farAngle;
-    }
-
-    const shMid = vmid(toVec(landmarks[L_SHOULDER]), toVec(landmarks[R_SHOULDER]));
-    const hipMid = vmid(toVec(landmarks[L_HIP]), toVec(landmarks[R_HIP]));
-
-    const view: V2CameraView = isNearLeft ? 'VIEW_DIAGONAL_LEFT' : 'VIEW_DIAGONAL_RIGHT';
-
-    return {
-      timestamp,
-      phaseEvidence: combined,
-      elbowLeft: isNearLeft ? nearAngle : farAngle,
-      elbowRight: isNearLeft ? farAngle : nearAngle,
-      elbowCombined: combined,
-      shoulderMotion: shMid.y,
-      hipMotion: hipMid.y,
-      worldDepthMotion: (landmarks[L_SHOULDER].z ?? 0 + (landmarks[R_SHOULDER].z ?? 0)) / 2,
-      poseConfidence: (nearVis + farVis) / 2,
-      view,
-    };
+    return signal;
   }
 
   reset(): void {}
-
-  private emptySignal(t: number): RepMotionSignal {
-    return {
-      timestamp: t,
-      phaseEvidence: Number.NaN,
-      elbowLeft: Number.NaN,
-      elbowRight: Number.NaN,
-      elbowCombined: Number.NaN,
-      shoulderMotion: Number.NaN,
-      hipMotion: Number.NaN,
-      worldDepthMotion: Number.NaN,
-      poseConfidence: 0,
-      view: 'VIEW_DIAGONAL_LEFT',
-    };
-  }
 }
 
-/**
- * Factory to create the appropriate signal extractor for a view.
- */
 export function createSignalExtractor(view: V2CameraView): IRepSignalExtractor {
   switch (view) {
     case 'VIEW_FRONT':

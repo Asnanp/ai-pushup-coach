@@ -34,17 +34,20 @@ import type {
   TwoStageCalibrationState,
   UserViewMode,
   V2CameraView,
+  V3RepState,
   WorkoutMetrics,
   WorkoutRepRecord,
 } from '@ai-pushup-coach/types';
 import { extractFrameFeatures, type ExtractContext } from '@ai-pushup-coach/biomechanics';
 import {
   RepCounter,
+  V3RepEngine,
   calibrateThresholds,
   createSignalExtractor,
   MotionCalibrator,
   type IRepSignalExtractor,
 } from '@ai-pushup-coach/rep-counter';
+
 import { ViewEstimator } from '@ai-pushup-coach/pose';
 import {
   CoachEngine,
@@ -71,6 +74,26 @@ export function toCameraView(v2: V2CameraView): CameraView {
   if (v2 === 'VIEW_FRONT') return 'front';
   if (v2 === 'VIEW_SIDE_LEFT' || v2 === 'VIEW_SIDE_RIGHT') return 'side';
   return 'diagonal';
+}
+
+function toLegacyRepState(state: V3RepState): string {
+  switch (state) {
+    case 'WAITING':
+      return 'READY';
+    case 'TOP_CONFIRMED':
+    case 'TOP_RETURNED':
+    case 'COMPLETE':
+    case 'REARMING':
+      return 'UP';
+    case 'DESCENDING':
+      return 'DESCENDING';
+    case 'BOTTOM_CONFIRMED':
+      return 'DOWN';
+    case 'ASCENDING':
+      return 'ASCENDING';
+    default:
+      return 'READY';
+  }
 }
 
 const VIEW_CHECKS: Record<
@@ -174,6 +197,10 @@ export class WorkoutSession {
   private readonly cfg: SessionConfig;
 
   private readonly counter: RepCounter;
+  private readonly v3: V3RepEngine;
+  private lastV3State: V3RepState = 'WAITING';
+  private lastV3Phase = 0;
+  private lastRejection: string | null = null;
   private readonly extractCtx: ExtractContext = { prevNormalized: null };
 
   private userViewMode: UserViewMode = 'AUTO';
@@ -214,6 +241,7 @@ export class WorkoutSession {
   constructor(cfg: SessionConfig) {
     this.cfg = cfg;
     this.counter = new RepCounter();
+    this.v3 = new V3RepEngine();
 
     const rawView = String(cfg.view || 'side').toUpperCase();
     if (rawView === 'AUTO') {
@@ -271,6 +299,7 @@ export class WorkoutSession {
 
   setUserViewMode(mode: UserViewMode): void {
     this.userViewMode = mode;
+    if (this.v3.isInCycle()) return;
     if (mode === 'FRONT') {
       this.activeV2View = 'VIEW_FRONT';
     } else if (mode === 'SIDE') {
@@ -280,6 +309,14 @@ export class WorkoutSession {
     }
     this.signalExtractor = createSignalExtractor(this.activeV2View);
     this.motionCalibrator.setView(this.activeV2View);
+  }
+
+  freezeLearning(): void {
+    this.v3.freezeLearning(true);
+  }
+
+  getV3Engine(): V3RepEngine {
+    return this.v3;
   }
 
   getElapsedSeconds(): number {
@@ -420,8 +457,12 @@ export class WorkoutSession {
     if (this.calibrationSamples.length > 0) {
       const thresholds = calibrateThresholds(this.calibrationSamples);
       this.counter.setThresholds(thresholds);
+      if (thresholds.calibrated) {
+        this.v3.seedElbowRom(thresholds.observedMax, thresholds.observedMin);
+      }
     }
     this.counter.resetFilters();
+    this.v3.startCounting();
     this.phase = 'active';
     this.startedAtMs = performance.now();
     this.pausedAccumMs = 0;
@@ -460,6 +501,10 @@ export class WorkoutSession {
   reset(): void {
     this.phase = 'idle';
     this.counter.reset();
+    this.v3.reset();
+    this.lastV3State = 'WAITING';
+    this.lastV3Phase = 0;
+    this.lastRejection = null;
     this.viewEstimator.reset();
     this.motionCalibrator.reset();
     this.coachEngine.reset();
@@ -483,21 +528,21 @@ export class WorkoutSession {
   }
 
   onPoseFrame(pose: PoseFrame): void {
-    // 1. View estimation (if in AUTO mode)
-    if (this.userViewMode === 'AUTO' && pose.valid && pose.landmarks?.length >= 25) {
+    // 1. View estimation (if in AUTO mode). Never switch view mid-rep.
+    if (this.userViewMode === 'AUTO' && pose.valid && pose.landmarks?.length >= 25 && !this.v3.isInCycle()) {
       const est = this.viewEstimator.estimate(pose.landmarks, pose.timestamp);
       if (est.view !== this.activeV2View && !est.isLocked) {
         this.activeV2View = est.view;
         this.signalExtractor = createSignalExtractor(this.activeV2View);
         this.motionCalibrator.setView(this.activeV2View);
       }
-    } else if (this.userViewMode === 'SIDE') {
+    } else if (this.userViewMode === 'SIDE' && !this.v3.isInCycle()) {
       const sideView: V2CameraView = pose.side === 'right' ? 'VIEW_SIDE_RIGHT' : 'VIEW_SIDE_LEFT';
       if (this.activeV2View !== sideView) {
         this.activeV2View = sideView;
         this.signalExtractor = createSignalExtractor(this.activeV2View);
       }
-    } else if (this.userViewMode === 'DIAGONAL') {
+    } else if (this.userViewMode === 'DIAGONAL' && !this.v3.isInCycle()) {
       const diagView: V2CameraView = pose.side === 'right' ? 'VIEW_DIAGONAL_RIGHT' : 'VIEW_DIAGONAL_LEFT';
       if (this.activeV2View !== diagView) {
         this.activeV2View = diagView;
@@ -506,9 +551,10 @@ export class WorkoutSession {
     }
 
     // 2. Extract bilateral / view-specific RepMotionSignal
-    const signal = pose.valid && pose.landmarks?.length >= 25
-      ? this.signalExtractor.extract(pose.landmarks, pose.timestamp)
-      : this.emptySignal(pose.timestamp);
+    const signal =
+      pose.landmarks?.length >= 25
+        ? this.signalExtractor.extract(pose.landmarks, pose.timestamp, pose.worldLandmarks)
+        : this.emptySignal(pose.timestamp);
     this.lastSignal = signal;
 
     // 3. Extract biomechanical features for form assessment
@@ -535,7 +581,11 @@ export class WorkoutSession {
 
   private processFrame(frame: FrameFeatures, pose: PoseFrame | undefined, signal: RepMotionSignal): void {
     if (this.phase === 'calibrating') {
-      const angleToObserve = Number.isFinite(signal.phaseEvidence) ? signal.phaseEvidence : frame.elbowAngle;
+      const angleToObserve = Number.isFinite(signal.elbowCombined)
+        ? signal.elbowCombined
+        : Number.isFinite(signal.phaseEvidence)
+          ? signal.phaseEvidence
+          : frame.elbowAngle;
       if (frame.valid && Number.isFinite(angleToObserve)) {
         const filtered = this.counter.observe(angleToObserve);
         if (Number.isFinite(filtered)) {
@@ -570,12 +620,29 @@ export class WorkoutSession {
           progress: 0,
         });
       }
+      if (pose?.landmarks && pose.landmarks.length >= 25) {
+        this.v3.feed({
+          timestamp: pose.timestamp,
+          landmarks: pose.landmarks,
+          worldLandmarks: pose.worldLandmarks,
+          view: this.activeV2View,
+          viewConfidence: this.viewEstimator.getLastEstimate()?.confidence,
+          frame,
+          canCount: true,
+          signal,
+        });
+      }
       return;
     }
 
     if (this.phase !== 'active' && this.phase !== 'paused') return;
 
-    if (!frame.valid) {
+    const canCount =
+      pose?.capability?.canCountRep ||
+      frame.valid ||
+      Boolean(pose?.landmarks && pose.landmarks.length >= 25 && (pose.sideVisibility ?? 0) > 0.28);
+
+    if (!canCount) {
       this.lostFrames++;
       this.liveElbowAngle = null;
       if (
@@ -593,23 +660,35 @@ export class WorkoutSession {
     }
     this.lostFrames = 0;
 
-    const liveAngle = Number.isFinite(signal.phaseEvidence) ? signal.phaseEvidence : frame.elbowAngle;
-    this.liveElbowAngle = liveAngle;
+    const v3 = this.v3.feed({
+      timestamp: pose?.timestamp ?? frame.timestamp,
+      landmarks: pose?.landmarks,
+      worldLandmarks: pose?.worldLandmarks,
+      view: this.activeV2View,
+      viewConfidence: this.viewEstimator.getLastEstimate()?.confidence,
+      frame: frame.valid ? frame : undefined,
+      canCount: true,
+      signal,
+    });
+    this.lastV3State = v3.fsmState;
+    this.lastV3Phase = v3.phase;
+    this.lastRejection = v3.rejectionReason;
+    this.liveElbowAngle = v3.liveElbow ?? (Number.isFinite(signal.phaseEvidence) ? signal.phaseEvidence : frame.elbowAngle);
 
-    if (Number.isFinite(liveAngle)) {
+    if (this.liveElbowAngle !== null && Number.isFinite(this.liveElbowAngle)) {
       this.cfg.callbacks.onMotionSample?.({
-        angle: liveAngle,
-        state: this.counter.getState(),
-        progress: this.counter.getCycleProgress(),
+        angle: this.liveElbowAngle,
+        state: v3.fsmState,
+        progress: v3.phase,
       });
     }
 
     if (this.phase !== 'active') return;
 
-    const rep = this.counter.feed(frame, signal);
     this.refreshThresholdsAdaptively();
-    if (rep) {
-      this.handleCompletedRep(rep.frames);
+    if (v3.event?.counted) {
+      const frames = v3.event.frames.length > 0 ? v3.event.frames : frame.valid ? [frame] : [];
+      this.handleCompletedRep(frames, v3.event);
     }
   }
 
@@ -635,7 +714,7 @@ export class WorkoutSession {
     if (next.calibrated) this.counter.setThresholds(next);
   }
 
-  private handleCompletedRep(frames: FrameFeatures[]): void {
+  private handleCompletedRep(frames: FrameFeatures[], cycle?: { phaseExcursion: number; angularExcursion: number; depthExcursion: number; shoulderYTop: number; shoulderYBottom: number }): void {
     const index = this.assessments.length + 1;
 
     const assessment = assessRep(
@@ -644,6 +723,14 @@ export class WorkoutSession {
         frames,
         view: toCameraView(this.activeV2View),
         totalFramesInWindow: frames.length,
+        live: cycle
+          ? {
+              phaseExcursion: cycle.phaseExcursion,
+              angularExcursion: cycle.angularExcursion,
+              depthExcursion: cycle.depthExcursion,
+              shoulderYTravel: Math.abs(cycle.shoulderYBottom - cycle.shoulderYTop),
+            }
+          : undefined,
       },
       {
         model: this.cfg.model,
@@ -744,8 +831,8 @@ export class WorkoutSession {
       metrics: this.computeMetrics(),
       lastRep: this.lastRep,
       liveElbowAngle: this.liveElbowAngle,
-      repState: this.counter.getState(),
-      cycleProgress: this.counter.getCycleProgress(),
+      repState: toLegacyRepState(this.lastV3State),
+      cycleProgress: this.lastV3Phase,
       pausedReason: this.pausedReason,
       view: toCameraView(this.activeV2View),
       userViewMode: this.userViewMode,
@@ -757,16 +844,18 @@ export class WorkoutSession {
         elbowLeft: this.lastSignal?.elbowLeft ?? null,
         elbowRight: this.lastSignal?.elbowRight ?? null,
         elbowCombined: this.lastSignal?.elbowCombined ?? null,
-        elbow2D: this.lastSignal?.elbowCombined ?? null,
-        elbow3D: this.lastSignal?.worldDepthMotion ?? null,
-        romTop: this.counter.getThresholds().upEnter,
-        romBottom: this.counter.getThresholds().downEnter,
-        normalizedPhase: this.counter.getCycleProgress(),
-        fsmState: this.counter.getState(),
+        elbow2D: this.lastSignal?.elbowLeft2D ?? this.lastSignal?.elbowCombined ?? null,
+        elbow3D: this.lastSignal?.elbowLeft3D ?? this.lastSignal?.worldDepthMotion ?? null,
+        romTop: this.v3.getRom().elbowTop,
+        romBottom: this.v3.getRom().elbowBottom,
+        normalizedPhase: this.lastV3Phase,
+        fsmState: this.lastV3State,
         poseConfidence: this.lastSignal?.poseConfidence ?? 0,
-        shoulderDepth: this.lastSignal?.shoulderMotion ?? null,
+        shoulderDepth: this.lastSignal?.shoulderWorldZ ?? this.lastSignal?.shoulderMotion ?? null,
         hipDepth: this.lastSignal?.hipMotion ?? null,
-        recalibrationStatus: `effTop: ${this.counter.getCalibrationTelemetry().effectiveTop.toFixed(1)}°, effBot: ${this.counter.getCalibrationTelemetry().effectiveBottom.toFixed(1)}°`,
+        recalibrationStatus: this.lastRejection
+          ? `reject: ${this.lastRejection}`
+          : `ROM ${this.v3.getRom().elbowBottom.toFixed(0)}–${this.v3.getRom().elbowTop.toFixed(0)}° phase=${this.lastV3Phase.toFixed(2)}`,
       },
     };
   }

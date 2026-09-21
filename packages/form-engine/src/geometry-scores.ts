@@ -106,6 +106,21 @@ export function romScore(romElbowDeg: number): number {
   return clamp((100 * (romElbowDeg - 25)) / (70 - 25));
 }
 
+/**
+ * Front-camera depth from fused movement phase, not 2D elbow.
+ * 0.18 ≈ detectable attempt, 0.55+ ≈ a real bottom.
+ */
+export function depthScoreFromPhase(phaseExcursion: number): number {
+  if (!Number.isFinite(phaseExcursion) || phaseExcursion <= 0) return NaN;
+  return clamp((100 * (phaseExcursion - 0.12)) / (0.7 - 0.12));
+}
+
+/** Front-camera ROM from the same fused excursion. */
+export function romScoreFromPhase(phaseExcursion: number): number {
+  if (!Number.isFinite(phaseExcursion) || phaseExcursion <= 0) return NaN;
+  return clamp((100 * (phaseExcursion - 0.1)) / (0.65 - 0.1));
+}
+
 /** Weighting for the geometry half of the rep score (docs/FORM_SCORE.md §2). */
 export const GEOMETRY_WEIGHTS = {
   depth: 0.3,

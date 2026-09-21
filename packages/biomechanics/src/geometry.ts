@@ -73,6 +73,38 @@ export function toVec(lm: Landmark): Vec2 {
   return { x: lm.x, y: lm.y };
 }
 
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export function toVec3(lm: Landmark): Vec3 {
+  return { x: lm.x, y: lm.y, z: lm.z ?? 0 };
+}
+
+/**
+ * 3D interior angle at vertex `b`, in degrees.
+ *
+ * A previous live-path bug computed the wrist-elbow z component as
+ * `(c.z - c.z)` which is always 0, so "3D" elbows ignored depth — the
+ * exact signal a front webcam needs. This helper subtracts `b.z` from both
+ * limbs.
+ */
+export function angleDeg3D(a: Landmark, b: Landmark, c: Landmark): number {
+  const bax = a.x - b.x;
+  const bay = a.y - b.y;
+  const baz = (a.z ?? 0) - (b.z ?? 0);
+  const bcx = c.x - b.x;
+  const bcy = c.y - b.y;
+  const bcz = (c.z ?? 0) - (b.z ?? 0);
+  const nba = Math.hypot(bax, bay, baz);
+  const nbc = Math.hypot(bcx, bcy, bcz);
+  if (nba < 1e-9 || nbc < 1e-9) return Number.NaN;
+  const cos = Math.max(-1, Math.min(1, (bax * bcx + bay * bcy + baz * bcz) / (nba * nbc)));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
 /**
  * Perpendicular offset of `hip` from the shoulder->ankle line, with a
  * consistent sign.
