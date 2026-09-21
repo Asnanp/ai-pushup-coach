@@ -311,14 +311,8 @@ export const LiveMotionGraph = forwardRef<LiveMotionGraphHandle, Props>(
     return (
       <div className={`relative overflow-hidden rounded-card border border-base-border bg-base-sunken/80 backdrop-blur-sm p-3 ${className}`}>
         <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-accent animate-pulse" aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wider uppercase text-ink">
-              Live Motion Waveform
-            </span>
-            <span className="rounded bg-base-raised px-1.5 py-0.5 text-[10px] font-mono text-ink-muted">
-              60 FPS BIOFEEDBACK
-            </span>
+          <div className="text-xs font-medium text-ink-muted">
+            Depth & Elbow Motion
           </div>
           <div className="flex items-center gap-3 text-xs font-mono">
             <span className="flex items-center gap-1.5 text-accent">

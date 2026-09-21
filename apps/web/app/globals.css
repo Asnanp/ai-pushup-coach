@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,30 +12,25 @@
   html,
   body {
     @apply bg-base text-ink antialiased;
-    font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  body {
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-  }
-
-  /* Focus rings: visible and consistent. */
+  /* Consistent focus ring */
   :focus-visible {
     @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
   }
 
-  /* Tabular numerals everywhere a metric updates. */
+  /* Tabular numerals for timers and counts */
   .tabular {
     font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
-  /* ---- Surfaces ---- */
+  /* ---- Minimal Surfaces ---- */
 
   .card {
-    @apply rounded-card border border-base-border/80 bg-base-raised/90 backdrop-blur-md transition-all duration-200;
-    box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    @apply rounded-card border border-base-border bg-base-raised transition-colors;
   }
 
   .card-pad {
@@ -43,13 +38,13 @@
   }
 
   .card-interactive {
-    @apply card hover:border-accent/40 hover:shadow-glow-sm cursor-pointer;
+    @apply card hover:border-white/20 cursor-pointer;
   }
 
-  /* ---- Labels ---- */
+  /* ---- Labels & Metrics ---- */
 
   .metric-label {
-    @apply text-label uppercase tracking-wider text-ink-muted font-semibold;
+    @apply text-label uppercase tracking-wider text-ink-muted font-medium;
   }
 
   .metric-value {
@@ -59,101 +54,66 @@
   /* ---- Buttons ---- */
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-control px-4 py-2.5
-           text-sm font-semibold transition-all duration-200 active:scale-[0.98]
+    @apply inline-flex items-center justify-center gap-2 rounded-control px-4 py-2
+           text-sm font-medium transition-colors active:scale-[0.99]
            disabled:cursor-not-allowed disabled:opacity-40 select-none cursor-pointer;
   }
 
   .btn-primary {
-    @apply btn bg-accent text-base font-bold shadow-glow-sm hover:brightness-110 hover:shadow-glow;
+    @apply btn bg-accent text-white font-semibold hover:bg-accent-dim;
   }
 
   .btn-secondary {
-    @apply btn border border-base-border/90 bg-base-raised/90 text-ink hover:border-white/20 hover:bg-base-hover shadow-sm;
+    @apply btn border border-base-border bg-base-raised text-ink hover:bg-base-hover hover:border-white/20;
   }
 
   .btn-danger {
-    @apply btn bg-danger text-white font-semibold shadow-md shadow-danger/25 hover:brightness-110;
+    @apply btn bg-danger text-white font-medium hover:bg-danger-dim;
   }
 
   .btn-ghost {
     @apply btn text-ink-muted hover:bg-base-hover hover:text-ink;
   }
 
-  /* ---- Status chips ---- */
+  /* ---- Status Chips ---- */
 
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-chip border px-2.5 py-1
-           text-xs font-semibold tracking-wide backdrop-blur-sm transition-colors;
+    @apply inline-flex items-center gap-1.5 rounded-chip border px-2.5 py-0.5
+           text-xs font-medium tracking-wide transition-colors;
   }
 
   .chip-good {
-    @apply chip border-accent/40 bg-accent/10 text-accent;
+    @apply chip border-accent/30 bg-accent/10 text-accent;
   }
 
   .chip-bad {
-    @apply chip border-danger/40 bg-danger/10 text-danger;
+    @apply chip border-danger/30 bg-danger/10 text-danger;
   }
 
   .chip-neutral {
-    @apply chip border-base-border bg-base-raised/80 text-ink-muted;
+    @apply chip border-base-border bg-base-raised text-ink-muted;
   }
 
   .chip-cyan {
-    @apply chip border-cyan/40 bg-cyan/10 text-cyan;
+    @apply chip border-cyan/30 bg-cyan/10 text-cyan;
   }
 
-  /* ---- Progress bar ---- */
+  /* ---- Progress Meter ---- */
 
   .meter {
-    @apply h-2 w-full overflow-hidden rounded-full bg-base/80 border border-base-border/60;
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-base border border-base-border/50;
   }
 
   .meter-fill {
-    @apply h-full rounded-full bg-gradient-to-r from-accent-dim to-accent transition-[width] duration-300;
+    @apply h-full rounded-full bg-accent transition-[width] duration-200;
   }
 
   .meter-fill-warn {
-    @apply h-full rounded-full bg-gradient-to-r from-warn/70 to-warn transition-[width] duration-300;
+    @apply h-full rounded-full bg-warn transition-[width] duration-200;
   }
 }
 
 @layer utilities {
-  /* Subtle dark grid background */
-  .bg-grid {
-    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 36px 36px;
-  }
-
-  /* Viewfinder HUD brackets */
-  .hud-bracket {
-    position: relative;
-  }
-  .hud-bracket::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    width: 14px;
-    height: 14px;
-    border-top: 2px solid rgba(0, 240, 144, 0.6);
-    border-left: 2px solid rgba(0, 240, 144, 0.6);
-    pointer-events: none;
-  }
-  .hud-bracket::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 14px;
-    height: 14px;
-    border-bottom: 2px solid rgba(0, 240, 144, 0.6);
-    border-right: 2px solid rgba(0, 240, 144, 0.6);
-    pointer-events: none;
-  }
-
-  /* Respect users who ask for reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -165,18 +125,18 @@
   }
 }
 
-/* Scrollbar styling */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #070a0e;
+  background: #0b0e14;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1c2733;
-  border-radius: 4px;
+  background: #1f2633;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a3d50;
+  background: #2b3547;
 }
