@@ -30,9 +30,9 @@ export function AppHeader() {
         <Link
           href="/"
           className="flex items-center gap-2 text-base font-bold tracking-tight text-ink transition-opacity hover:opacity-80"
-          aria-label="PushUp&Coach — home"
+          aria-label="AI Push-Up Coach — home"
         >
-          <span>PushUp<span className="font-normal text-ink-muted">&amp;</span>Coach<span className="text-emerald-600">.</span></span>
+          <span>AI Push-Up Coach<span className="text-emerald-600">.</span></span>
         </Link>
 
         {/* Navigation */}

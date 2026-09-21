@@ -59,7 +59,7 @@ export default function WorkoutPage() {
   const [lastAssessment, setLastAssessment] = useState<RepAssessment | null>(null);
   const [videoDims, setVideoDims] = useState({ w: 1280, h: 720 });
   const [userViewMode, setUserViewMode] = useState<UserViewMode>('AUTO');
-  const [voiceMode, setVoiceMode] = useState<VoiceCoachMode>('NORMAL');
+  const [voiceMode, setVoiceMode] = useState<VoiceCoachMode>('MOTIVATOR');
   const [showDebug, setShowDebug] = useState(false);
   const [calibrationReady, setCalibrationReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -712,9 +712,10 @@ function VoiceSelector({
   onChange: (v: VoiceCoachMode) => void;
 }) {
   const options: { v: VoiceCoachMode; label: string }[] = [
-    { v: 'OFF', label: 'Mute' },
-    { v: 'NORMAL', label: 'Voice' },
+    { v: 'MOTIVATOR', label: '⚡ Motivator' },
+    { v: 'NORMAL', label: 'Coach' },
     { v: 'ACTIVE', label: 'Active' },
+    { v: 'OFF', label: 'Mute' },
   ];
   return (
     <div

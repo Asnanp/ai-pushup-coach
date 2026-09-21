@@ -10,7 +10,7 @@ export function AppFooter() {
     <footer className="mt-20 border-t border-base-border py-10 text-xs text-ink-muted">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <span className="font-bold text-ink">PushUp<span className="font-normal text-ink-muted">&amp;</span>Coach.</span>
+          <span className="font-bold text-ink">AI Push-Up Coach.</span>
           <span className="mx-2 text-ink-faint">·</span>
           <span>100% on-device vision. Zero camera frames leave your device.</span>
         </div>
