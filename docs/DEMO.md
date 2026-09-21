@@ -129,18 +129,21 @@ Total ~2 min 30 s.
 1. On `/workout`, confirm the view selector is on **Side** (best for depth, body line
    and the elbow angle — `docs/UX_FLOW.md §3.3`). Press **Start Workout**.
 2. The **Camera check** panel appears with six rows: Full body in frame, Pose detected,
-   Side view, Lighting, Distance, Hold still to calibrate (`workout-session.ts:212-249`).
+   Side view, Lighting, Distance, Range of motion detected (`lib/workout-session.ts`,
+   `getCalibrationState`).
 3. **Say:** "Watch these rows. Every one is a real measurement from my body right now.
    The panel polls my state five times a second." (It polls every 200 ms,
-   `components/CalibrationPanel.tsx:42-47`.)
+   `components/CalibrationPanel.tsx`.)
 4. Deliberately fail one, then fix it. E.g. turn to face the camera: the **Side view**
    row goes red and shows the hint *"Turn sideways to the camera for the most accurate
    analysis."* Turn back side-on and it passes. **Say:** "That's the app telling me my
-   geometry is untrustworthy, instead of scoring me on bad data."
-5. Get into push-up position and hold. The **Hold still to calibrate** row fills:
-   `Collecting motion samples (n/45)`. It needs 45 samples to pass the gate
-   (`workout-session.ts:210`), and 60 samples to mark calibration complete
-   (`workout-session.ts:336`).
+   geometry is untrustworthy, instead of scoring me on bad data." (The view check
+   follows the selected camera view — switch to Front and it expects you to face the
+   camera instead; front push-ups count too.)
+5. Get into push-up position and do **two or three slow practice push-ups**. The
+   **Range of motion detected** row goes green only once the collected window contains
+   a real movement range — holding perfectly still never completes calibration
+   (`workout-session.ts`, `calibrationHasRom`).
 6. **Say the key line:** "**Start counting** is disabled until all six pass. And those
    thresholds are not 90 and 160 degrees — they're derived from **my** range of motion.
    A fixed 155-degree threshold once produced zero reps for a whole subject whose
@@ -154,9 +157,8 @@ Do three clean push-ups: **full depth** (elbow to about 90°, chest to fist heig
 
 - After each rep the **Feedback** panel (bottom left) reads **"Good form!"** with
   *"Keep your body straight and maintain a steady tempo."* (`feedback.ts:83-88`).
-- The **Form analysis** meters — Depth, Body alignment, Tempo, Consistency — fill in.
-  (Four meters, not five; ROM is folded into the score but has no live meter —
-  `docs/UX_FLOW.md §11`.)
+- The **Form analysis** meters — Depth, Body alignment, Tempo, Consistency, Range of
+  motion — fill in. (`docs/UX_FLOW.md §11`.)
 - **Say:** "Elbow angle, state and cycle percentage are live in the chips under the
   video. That's the state machine, not the model."
 

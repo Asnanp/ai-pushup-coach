@@ -53,7 +53,7 @@ if (!tscPath) {
  * dependencies automatically, but passing them explicitly makes the intended
  * order obvious and keeps the failure output readable.
  */
-const PACKAGES = ['types', 'pose', 'biomechanics', 'rep-counter', 'form-engine'];
+const PACKAGES = ['types', 'pose', 'biomechanics', 'rep-counter', 'form-engine', 'coach-engine'];
 
 const projects = PACKAGES.map((p) => `packages/${p}`).filter((p) =>
   existsSync(path.join(repoRoot, p, 'tsconfig.json')),

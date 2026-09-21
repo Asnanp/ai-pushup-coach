@@ -159,10 +159,10 @@ evidence:
 |---|---|---|---|
 | `full-body` | Full body in frame | ≥5 valid recent frames **and** the last 10 all have ankles tracked and unclipped | "Move further from the camera so your feet are visible." |
 | `pose` | Pose detected | ≥10 valid frames in the recent window | "Step into the frame and hold a push-up position." |
-| `view` | Side view | mean `sideDominance` ≥ **0.55** | "Turn sideways to the camera for the most accurate analysis." |
+| `view` | Side view / Diagonal view / Front view — the label follows the selected camera view | orientation matches the selection: `side` passes when mean `sideDominance` ≥ **0.55**, `front` when ≤ **0.5** (actually facing the camera), `diagonal` always (any orientation between the extremes is usable) | side: "Turn sideways to the camera for the most accurate analysis." · front: "Face the camera squarely so both shoulders are equally visible." |
 | `lighting` | Lighting | mean `sideVisibility` ≥ **0.6** | "Add light or avoid strong backlighting behind you." |
 | `distance` | Distance | mean body-span ratio between **0.12 and 0.75** | "Adjust your distance — you are too close or too far." |
-| `stable` | Hold still to calibrate | ≥45 collected samples | "Collecting motion samples (n/45)." |
+| `stable` | Range of motion detected | the collected window contains a real movement range (`calibrateThresholds(samples).calibrated`) — stillness never completes calibration | "Do two or three slow practice push-ups so the rep counter can learn your range." |
 
 **Start counting is disabled until every check passes** (`aria-describedby` points at the
 "Waiting for all checks to pass" hint). This is a deliberate gate: counting must not begin

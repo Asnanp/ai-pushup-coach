@@ -1,0 +1,1482 @@
+{
+  "total_zero_clips": 25,
+  "category_breakdown": {
+    "CALIBRATION_FAILURE": 7,
+    "SEGMENTATION_FAILURE": 14,
+    "UNUSUAL_BAD_FORM": 1,
+    "POSE_FAILURE": 3
+  },
+  "recoverable_clips": 18,
+  "recoverable_train_dev_clips": 17,
+  "recoverable_held_out_test_clips": 1,
+  "clips": [
+    {
+      "clip_id": "bad_diagonal_subject_019",
+      "subject": "019",
+      "label": "1",
+      "quality": "bad",
+      "view": "diagonal",
+      "is_held_out_test": false,
+      "total_frames": 69,
+      "valid_frames": 64,
+      "mean_pose_confidence": 0.703,
+      "observed_rom_deg": 159.0,
+      "min_elbow_angle": 5.3,
+      "max_elbow_angle": 176.2,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=5.3\u00b0, max=176.2\u00b0, ROM=159.0\u00b0)",
+      "detected_peaks": [],
+      "detected_valleys": [],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "bad_diagonal_subject_020",
+      "subject": "020",
+      "label": "1",
+      "quality": "bad",
+      "view": "diagonal",
+      "is_held_out_test": false,
+      "total_frames": 213,
+      "valid_frames": 210,
+      "mean_pose_confidence": 0.683,
+      "observed_rom_deg": 67.2,
+      "min_elbow_angle": 42.9,
+      "max_elbow_angle": 131.3,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (67.2\u00b0) and 6 valleys exist",
+      "detected_peaks": [
+        21,
+        55,
+        109,
+        127,
+        172,
+        198
+      ],
+      "detected_valleys": [
+        14,
+        45,
+        60,
+        118,
+        151,
+        190
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          21,
+          55
+        ],
+        [
+          55,
+          109
+        ],
+        [
+          109,
+          127
+        ],
+        [
+          127,
+          172
+        ],
+        [
+          172,
+          198
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_diagonal_subject_021",
+      "subject": "021",
+      "label": "1",
+      "quality": "bad",
+      "view": "diagonal",
+      "is_held_out_test": false,
+      "total_frames": 203,
+      "valid_frames": 203,
+      "mean_pose_confidence": 0.712,
+      "observed_rom_deg": 36.7,
+      "min_elbow_angle": 65.5,
+      "max_elbow_angle": 128.4,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=65.5\u00b0, max=128.4\u00b0, ROM=36.7\u00b0)",
+      "detected_peaks": [
+        18,
+        59,
+        115,
+        169,
+        184
+      ],
+      "detected_valleys": [
+        26,
+        52,
+        80,
+        108,
+        136,
+        176
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          18,
+          59
+        ],
+        [
+          59,
+          115
+        ],
+        [
+          115,
+          169
+        ],
+        [
+          169,
+          184
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_008",
+      "subject": "008",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 319,
+      "valid_frames": 315,
+      "mean_pose_confidence": 0.689,
+      "observed_rom_deg": 119.0,
+      "min_elbow_angle": 3.7,
+      "max_elbow_angle": 179.9,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (119.0\u00b0) and 10 valleys exist",
+      "detected_peaks": [
+        17,
+        36,
+        71,
+        107,
+        141,
+        162,
+        201,
+        229,
+        265,
+        296
+      ],
+      "detected_valleys": [
+        9,
+        62,
+        93,
+        121,
+        151,
+        181,
+        215,
+        238,
+        282,
+        313
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          36,
+          71
+        ],
+        [
+          71,
+          107
+        ],
+        [
+          107,
+          141
+        ],
+        [
+          141,
+          162
+        ],
+        [
+          162,
+          201
+        ],
+        [
+          201,
+          229
+        ],
+        [
+          229,
+          265
+        ],
+        [
+          265,
+          296
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_009",
+      "subject": "009",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 244,
+      "valid_frames": 169,
+      "mean_pose_confidence": 0.523,
+      "observed_rom_deg": 108.1,
+      "min_elbow_angle": 35.4,
+      "max_elbow_angle": 179.4,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=35.4\u00b0, max=179.4\u00b0, ROM=108.1\u00b0)",
+      "detected_peaks": [
+        19,
+        45,
+        74,
+        95,
+        205
+      ],
+      "detected_valleys": [
+        31,
+        55,
+        83,
+        122,
+        223
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          19,
+          45
+        ],
+        [
+          45,
+          74
+        ],
+        [
+          74,
+          95
+        ],
+        [
+          95,
+          205
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_014",
+      "subject": "014",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 304,
+      "valid_frames": 214,
+      "mean_pose_confidence": 0.574,
+      "observed_rom_deg": 99.0,
+      "min_elbow_angle": 4.6,
+      "max_elbow_angle": 180.0,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=4.6\u00b0, max=180.0\u00b0, ROM=99.0\u00b0)",
+      "detected_peaks": [
+        53,
+        158,
+        187,
+        215,
+        243,
+        275
+      ],
+      "detected_valleys": [
+        43,
+        67,
+        170,
+        200,
+        228,
+        254,
+        291
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          53,
+          158
+        ],
+        [
+          158,
+          187
+        ],
+        [
+          187,
+          215
+        ],
+        [
+          215,
+          243
+        ],
+        [
+          243,
+          275
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_015",
+      "subject": "015",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 202,
+      "valid_frames": 197,
+      "mean_pose_confidence": 0.656,
+      "observed_rom_deg": 143.3,
+      "min_elbow_angle": 11.8,
+      "max_elbow_angle": 179.9,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (143.3\u00b0) and 4 valleys exist",
+      "detected_peaks": [
+        24,
+        62,
+        104,
+        145
+      ],
+      "detected_valleys": [
+        40,
+        83,
+        127,
+        161
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          24,
+          62
+        ],
+        [
+          62,
+          104
+        ],
+        [
+          104,
+          145
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_017",
+      "subject": "017",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 181,
+      "valid_frames": 172,
+      "mean_pose_confidence": 0.626,
+      "observed_rom_deg": 99.2,
+      "min_elbow_angle": 50.8,
+      "max_elbow_angle": 179.1,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (99.2\u00b0) and 7 valleys exist",
+      "detected_peaks": [
+        36,
+        55,
+        71,
+        91,
+        114,
+        135,
+        158
+      ],
+      "detected_valleys": [
+        21,
+        47,
+        62,
+        101,
+        123,
+        144,
+        168
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          36,
+          55
+        ],
+        [
+          55,
+          71
+        ],
+        [
+          91,
+          114
+        ],
+        [
+          114,
+          135
+        ],
+        [
+          135,
+          158
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_018",
+      "subject": "018",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 243,
+      "valid_frames": 229,
+      "mean_pose_confidence": 0.64,
+      "observed_rom_deg": 139.8,
+      "min_elbow_angle": 0.4,
+      "max_elbow_angle": 180.0,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (139.8\u00b0) and 8 valleys exist",
+      "detected_peaks": [
+        33,
+        61,
+        87,
+        113,
+        147,
+        165,
+        195,
+        222
+      ],
+      "detected_valleys": [
+        22,
+        52,
+        74,
+        99,
+        131,
+        156,
+        185,
+        212
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          33,
+          61
+        ],
+        [
+          61,
+          87
+        ],
+        [
+          87,
+          113
+        ],
+        [
+          113,
+          147
+        ],
+        [
+          147,
+          165
+        ],
+        [
+          165,
+          195
+        ],
+        [
+          195,
+          222
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_019",
+      "subject": "019",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 41,
+      "valid_frames": 28,
+      "mean_pose_confidence": 0.596,
+      "observed_rom_deg": 152.4,
+      "min_elbow_angle": 1.0,
+      "max_elbow_angle": 173.3,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "UNUSUAL_BAD_FORM",
+      "rejection_reason": "High noise/irregular motion with weak periodic structure (ROM=152.4\u00b0)",
+      "detected_peaks": [
+        14,
+        31
+      ],
+      "detected_valleys": [],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "bad_front_subject_021",
+      "subject": "021",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 211,
+      "valid_frames": 202,
+      "mean_pose_confidence": 0.599,
+      "observed_rom_deg": 98.3,
+      "min_elbow_angle": 57.8,
+      "max_elbow_angle": 179.2,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (98.3\u00b0) and 8 valleys exist",
+      "detected_peaks": [
+        17,
+        44,
+        71,
+        99,
+        140,
+        168
+      ],
+      "detected_valleys": [
+        9,
+        36,
+        63,
+        91,
+        106,
+        134,
+        161,
+        188
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          17,
+          44
+        ],
+        [
+          44,
+          71
+        ],
+        [
+          71,
+          99
+        ],
+        [
+          99,
+          140
+        ],
+        [
+          140,
+          168
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_front_subject_022",
+      "subject": "022",
+      "label": "1",
+      "quality": "bad",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 265,
+      "valid_frames": 52,
+      "mean_pose_confidence": 0.288,
+      "observed_rom_deg": 93.2,
+      "min_elbow_angle": 65.7,
+      "max_elbow_angle": 176.6,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=65.7\u00b0, max=176.6\u00b0, ROM=93.2\u00b0)",
+      "detected_peaks": [
+        227
+      ],
+      "detected_valleys": [
+        218,
+        236
+      ],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "bad_side_subject_004",
+      "subject": "004",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": false,
+      "total_frames": 412,
+      "valid_frames": 412,
+      "mean_pose_confidence": 0.733,
+      "observed_rom_deg": 36.3,
+      "min_elbow_angle": 130.7,
+      "max_elbow_angle": 179.3,
+      "tracking_quality_reason": "frozen_signal",
+      "category": "POSE_FAILURE",
+      "rejection_reason": "Frozen tracking: pose landmarks did not move with body",
+      "detected_peaks": [
+        31,
+        78,
+        136,
+        190,
+        234,
+        278
+      ],
+      "detected_valleys": [
+        53,
+        107,
+        164,
+        213,
+        257,
+        307
+      ],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "bad_side_subject_011",
+      "subject": "011",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": false,
+      "total_frames": 299,
+      "valid_frames": 290,
+      "mean_pose_confidence": 0.739,
+      "observed_rom_deg": 42.6,
+      "min_elbow_angle": 34.9,
+      "max_elbow_angle": 180.0,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (42.6\u00b0) and 6 valleys exist",
+      "detected_peaks": [
+        75,
+        122,
+        154,
+        175,
+        225
+      ],
+      "detected_valleys": [
+        34,
+        90,
+        145,
+        162,
+        208,
+        265
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          75,
+          122
+        ],
+        [
+          122,
+          154
+        ],
+        [
+          154,
+          175
+        ],
+        [
+          175,
+          225
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_side_subject_012",
+      "subject": "012",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": false,
+      "total_frames": 374,
+      "valid_frames": 348,
+      "mean_pose_confidence": 0.715,
+      "observed_rom_deg": 102.9,
+      "min_elbow_angle": 4.4,
+      "max_elbow_angle": 179.9,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (102.9\u00b0) and 12 valleys exist",
+      "detected_peaks": [
+        24,
+        43,
+        70,
+        97,
+        116,
+        146,
+        188,
+        237,
+        271,
+        314,
+        342
+      ],
+      "detected_valleys": [
+        12,
+        33,
+        52,
+        89,
+        104,
+        131,
+        172,
+        213,
+        251,
+        293,
+        322,
+        360
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          24,
+          43
+        ],
+        [
+          43,
+          70
+        ],
+        [
+          70,
+          97
+        ],
+        [
+          97,
+          116
+        ],
+        [
+          116,
+          146
+        ],
+        [
+          146,
+          188
+        ],
+        [
+          188,
+          237
+        ],
+        [
+          237,
+          271
+        ],
+        [
+          271,
+          314
+        ],
+        [
+          314,
+          342
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_side_subject_014",
+      "subject": "014",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": false,
+      "total_frames": 253,
+      "valid_frames": 253,
+      "mean_pose_confidence": 0.711,
+      "observed_rom_deg": 69.7,
+      "min_elbow_angle": 27.5,
+      "max_elbow_angle": 180.0,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (69.7\u00b0) and 8 valleys exist",
+      "detected_peaks": [
+        49,
+        65,
+        80,
+        98,
+        115,
+        130,
+        173,
+        216
+      ],
+      "detected_valleys": [
+        59,
+        74,
+        89,
+        106,
+        124,
+        164,
+        180,
+        243
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          49,
+          65
+        ],
+        [
+          65,
+          80
+        ],
+        [
+          80,
+          98
+        ],
+        [
+          98,
+          115
+        ],
+        [
+          115,
+          130
+        ],
+        [
+          130,
+          173
+        ],
+        [
+          173,
+          216
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_side_subject_016",
+      "subject": "016",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": true,
+      "total_frames": 405,
+      "valid_frames": 405,
+      "mean_pose_confidence": 0.735,
+      "observed_rom_deg": 5.4,
+      "min_elbow_angle": 169.7,
+      "max_elbow_angle": 180.0,
+      "tracking_quality_reason": "insufficient_range+frozen_signal+unstable_signal",
+      "category": "POSE_FAILURE",
+      "rejection_reason": "Frozen tracking: pose landmarks did not move with body",
+      "detected_peaks": [],
+      "detected_valleys": [],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "bad_side_subject_020",
+      "subject": "020",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": false,
+      "total_frames": 253,
+      "valid_frames": 253,
+      "mean_pose_confidence": 0.711,
+      "observed_rom_deg": 69.7,
+      "min_elbow_angle": 27.5,
+      "max_elbow_angle": 180.0,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (69.7\u00b0) and 8 valleys exist",
+      "detected_peaks": [
+        49,
+        65,
+        80,
+        98,
+        115,
+        130,
+        173,
+        216
+      ],
+      "detected_valleys": [
+        59,
+        74,
+        89,
+        106,
+        124,
+        164,
+        180,
+        243
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          49,
+          65
+        ],
+        [
+          65,
+          80
+        ],
+        [
+          80,
+          98
+        ],
+        [
+          98,
+          115
+        ],
+        [
+          115,
+          130
+        ],
+        [
+          130,
+          173
+        ],
+        [
+          173,
+          216
+        ]
+      ]
+    },
+    {
+      "clip_id": "bad_side_subject_024",
+      "subject": "024",
+      "label": "1",
+      "quality": "bad",
+      "view": "side",
+      "is_held_out_test": true,
+      "total_frames": 319,
+      "valid_frames": 317,
+      "mean_pose_confidence": 0.7,
+      "observed_rom_deg": 75.0,
+      "min_elbow_angle": 29.3,
+      "max_elbow_angle": 179.4,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (75.0\u00b0) and 11 valleys exist",
+      "detected_peaks": [
+        41,
+        59,
+        81,
+        100,
+        123,
+        146,
+        170,
+        197,
+        226,
+        250,
+        274,
+        307
+      ],
+      "detected_valleys": [
+        50,
+        70,
+        90,
+        113,
+        133,
+        157,
+        184,
+        208,
+        240,
+        264,
+        287
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          41,
+          59
+        ],
+        [
+          59,
+          81
+        ],
+        [
+          81,
+          100
+        ],
+        [
+          100,
+          123
+        ],
+        [
+          123,
+          146
+        ],
+        [
+          146,
+          170
+        ],
+        [
+          170,
+          197
+        ],
+        [
+          197,
+          226
+        ],
+        [
+          226,
+          250
+        ],
+        [
+          250,
+          274
+        ],
+        [
+          274,
+          307
+        ]
+      ]
+    },
+    {
+      "clip_id": "good_diagonal_subject_020",
+      "subject": "020",
+      "label": "0",
+      "quality": "good",
+      "view": "diagonal",
+      "is_held_out_test": false,
+      "total_frames": 231,
+      "valid_frames": 231,
+      "mean_pose_confidence": 0.715,
+      "observed_rom_deg": 23.3,
+      "min_elbow_angle": 54.6,
+      "max_elbow_angle": 86.4,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=54.6\u00b0, max=86.4\u00b0, ROM=23.3\u00b0)",
+      "detected_peaks": [
+        31,
+        74,
+        89,
+        119,
+        149,
+        166,
+        181
+      ],
+      "detected_valleys": [
+        9,
+        38,
+        81,
+        111,
+        127,
+        157,
+        173,
+        215
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          31,
+          74
+        ],
+        [
+          74,
+          89
+        ],
+        [
+          89,
+          119
+        ],
+        [
+          119,
+          149
+        ],
+        [
+          149,
+          166
+        ],
+        [
+          166,
+          181
+        ]
+      ]
+    },
+    {
+      "clip_id": "good_front_subject_001",
+      "subject": "001",
+      "label": "0",
+      "quality": "good",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 467,
+      "valid_frames": 465,
+      "mean_pose_confidence": 0.705,
+      "observed_rom_deg": 80.9,
+      "min_elbow_angle": 32.1,
+      "max_elbow_angle": 160.8,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (80.9\u00b0) and 21 valleys exist",
+      "detected_peaks": [
+        20,
+        37,
+        55,
+        72,
+        90,
+        108,
+        125,
+        143,
+        161,
+        177,
+        195,
+        212,
+        229,
+        248,
+        263,
+        287,
+        325,
+        359,
+        409,
+        427,
+        454
+      ],
+      "detected_valleys": [
+        10,
+        28,
+        47,
+        64,
+        81,
+        99,
+        116,
+        134,
+        152,
+        169,
+        186,
+        204,
+        221,
+        238,
+        255,
+        271,
+        305,
+        338,
+        387,
+        419,
+        435
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          20,
+          37
+        ],
+        [
+          37,
+          55
+        ],
+        [
+          55,
+          72
+        ],
+        [
+          72,
+          90
+        ],
+        [
+          90,
+          108
+        ],
+        [
+          108,
+          125
+        ],
+        [
+          125,
+          143
+        ],
+        [
+          143,
+          161
+        ],
+        [
+          161,
+          177
+        ],
+        [
+          177,
+          195
+        ],
+        [
+          195,
+          212
+        ],
+        [
+          212,
+          229
+        ],
+        [
+          229,
+          248
+        ],
+        [
+          248,
+          263
+        ],
+        [
+          263,
+          287
+        ],
+        [
+          287,
+          325
+        ],
+        [
+          325,
+          359
+        ],
+        [
+          359,
+          409
+        ],
+        [
+          409,
+          427
+        ],
+        [
+          427,
+          454
+        ]
+      ]
+    },
+    {
+      "clip_id": "good_front_subject_013",
+      "subject": "013",
+      "label": "0",
+      "quality": "good",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 444,
+      "valid_frames": 0,
+      "mean_pose_confidence": 0.174,
+      "observed_rom_deg": 0.0,
+      "min_elbow_angle": 0.0,
+      "max_elbow_angle": 0.0,
+      "tracking_quality_reason": "too_few_frames",
+      "category": "POSE_FAILURE",
+      "rejection_reason": "Insufficient frames (444 total, 0 valid)",
+      "detected_peaks": [],
+      "detected_valleys": [],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "good_front_subject_018",
+      "subject": "018",
+      "label": "0",
+      "quality": "good",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 367,
+      "valid_frames": 297,
+      "mean_pose_confidence": 0.604,
+      "observed_rom_deg": 156.8,
+      "min_elbow_angle": 2.7,
+      "max_elbow_angle": 179.5,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (156.8\u00b0) and 10 valleys exist",
+      "detected_peaks": [
+        38,
+        98,
+        130,
+        173,
+        202,
+        229,
+        257,
+        286,
+        313,
+        341
+      ],
+      "detected_valleys": [
+        58,
+        115,
+        163,
+        182,
+        214,
+        242,
+        269,
+        302,
+        327,
+        352
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          38,
+          98
+        ],
+        [
+          98,
+          130
+        ],
+        [
+          130,
+          173
+        ],
+        [
+          173,
+          202
+        ],
+        [
+          202,
+          229
+        ],
+        [
+          229,
+          257
+        ],
+        [
+          257,
+          286
+        ],
+        [
+          286,
+          313
+        ],
+        [
+          313,
+          341
+        ]
+      ]
+    },
+    {
+      "clip_id": "good_front_subject_021",
+      "subject": "021",
+      "label": "0",
+      "quality": "good",
+      "view": "front",
+      "is_held_out_test": false,
+      "total_frames": 246,
+      "valid_frames": 42,
+      "mean_pose_confidence": 0.268,
+      "observed_rom_deg": 155.0,
+      "min_elbow_angle": 3.0,
+      "max_elbow_angle": 179.1,
+      "tracking_quality_reason": "ok",
+      "category": "CALIBRATION_FAILURE",
+      "rejection_reason": "Preamble calibration set thresholds outside observed descent (min=3.0\u00b0, max=179.1\u00b0, ROM=155.0\u00b0)",
+      "detected_peaks": [
+        31
+      ],
+      "detected_valleys": [
+        9
+      ],
+      "recoverable": false,
+      "candidate_rep_boundaries": []
+    },
+    {
+      "clip_id": "good_side_subject_007",
+      "subject": "007",
+      "label": "0",
+      "quality": "good",
+      "view": "side",
+      "is_held_out_test": false,
+      "total_frames": 376,
+      "valid_frames": 345,
+      "mean_pose_confidence": 0.687,
+      "observed_rom_deg": 108.8,
+      "min_elbow_angle": 8.4,
+      "max_elbow_angle": 179.4,
+      "tracking_quality_reason": "unstable_signal",
+      "category": "SEGMENTATION_FAILURE",
+      "rejection_reason": "Flagged unstable_signal due to reversal_fraction but genuine ROM (108.8\u00b0) and 17 valleys exist",
+      "detected_peaks": [
+        8,
+        27,
+        47,
+        65,
+        81,
+        101,
+        117,
+        132,
+        153,
+        170,
+        187,
+        204,
+        222,
+        243,
+        269,
+        300,
+        317,
+        337
+      ],
+      "detected_valleys": [
+        17,
+        36,
+        56,
+        74,
+        91,
+        108,
+        141,
+        161,
+        179,
+        196,
+        215,
+        231,
+        258,
+        282,
+        307,
+        327,
+        346
+      ],
+      "recoverable": true,
+      "candidate_rep_boundaries": [
+        [
+          8,
+          27
+        ],
+        [
+          27,
+          47
+        ],
+        [
+          47,
+          65
+        ],
+        [
+          65,
+          81
+        ],
+        [
+          81,
+          101
+        ],
+        [
+          101,
+          117
+        ],
+        [
+          132,
+          153
+        ],
+        [
+          153,
+          170
+        ],
+        [
+          170,
+          187
+        ],
+        [
+          187,
+          204
+        ],
+        [
+          204,
+          222
+        ],
+        [
+          222,
+          243
+        ],
+        [
+          243,
+          269
+        ],
+        [
+          269,
+          300
+        ],
+        [
+          300,
+          317
+        ],
+        [
+          317,
+          337
+        ]
+      ]
+    }
+  ]
+}

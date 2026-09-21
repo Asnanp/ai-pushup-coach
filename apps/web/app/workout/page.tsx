@@ -3,17 +3,14 @@
 /**
  * app/workout/page.tsx
  *
- * Agent 4 (shell) + Agent 15 (session) + Agent 14 (feedback)
+ * Agent 4 (shell) + Agent 15 (session) + Agent 13/14 (coach & voice) + Agent 2/3 (view awareness)
  *
- * The main training screen. Layout mirrors the supplied reference:
- *   header            -> AppHeader (layout level)
- *   left  ~60%        -> live camera with pose overlay
- *   right ~40%        -> timer, END WORKOUT, metric cards, form analysis
- *   bottom full width -> feedback panel + contextual tip
- *
- * Real-time discipline: this component re-renders at most ~4x/second, driven
- * by the session's throttled snapshots. The skeleton is drawn to canvas and
- * never enters React state.
+ * The main V2 training screen:
+ *   left  ~60%        -> live camera with pose overlay + dev diagnostics overlay
+ *   right ~40%        -> timer, end workout, view/voice selectors, rep tallies, form meters
+ *   bottom full width -> live intelligent coaching feedback + correction recognition + tips
+ *   finished screen   -> complete rep-by-rep breakdown with depth, alignment, tempo, ROM,
+ *                        correction status, ML P(good), and coach messages
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,18 +22,21 @@ import { CameraEngine, makeCaptureError } from '@/lib/camera';
 import { PoseEngine, type PoseStatus } from '@ai-pushup-coach/pose';
 import {
   WorkoutSession,
+  type DevDiagnosticsSnapshot,
   type SessionPhase,
   type SessionSnapshot,
 } from '@/lib/workout-session';
 import { getFormModel, loadFormModel, type FormModel } from '@ai-pushup-coach/form-engine';
 import { buildFeedback, tipForIssue } from '@ai-pushup-coach/form-engine';
+import type { VoiceCoachMode } from '@ai-pushup-coach/coach-engine';
 import { saveSession } from '@/lib/session-store';
 import type {
   CameraView,
   CaptureError,
-  FormLabel,
   IssueCode,
   RepAssessment,
+  UserViewMode,
+  WorkoutRepRecord,
 } from '@ai-pushup-coach/types';
 import { CalibrationPanel } from '@/components/CalibrationPanel';
 import { formatClock, formatInt, formatPercent } from '@/lib/format';
@@ -47,34 +47,20 @@ export default function WorkoutPage() {
   const sessionRef = useRef<WorkoutSession | null>(null);
   const stageRef = useRef<CameraStageHandle | null>(null);
 
-  /**
-   * The page's view state IS the session state machine (`SessionPhase`) — there
-   * is no second, parallel union. `'paused'` is a real phase (pose loss
-   * auto-pauses after 12 invalid frames) and must be representable here, or the
-   * paused UI could never render.
-   */
   const [phase, setPhase] = useState<SessionPhase>('idle');
-  /**
-   * Camera / model failures are surfaced through their own channel rather than
-   * by overloading the phase union with an invented `'error'` state: a failed
-   * `getUserMedia` happens while the session is still `'idle'`.
-   */
   const [error, setError] = useState<CaptureError | null>(null);
   const [poseStatus, setPoseStatus] = useState<PoseStatus>('idle');
-  /**
-   * Which asset source the pose runtime actually loaded from. Reported in the
-   * camera check so an operator can confirm the offline path engaged instead of
-   * taking it on faith.
-   */
   const [assetSource, setAssetSource] = useState<string | null>(null);
   const [model, setModel] = useState<FormModel | null>(null);
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
   const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null);
-  /** Full per-rep assessment — the snapshot's reduced view drops `borderline`. */
   const [lastAssessment, setLastAssessment] = useState<RepAssessment | null>(null);
   const [videoDims, setVideoDims] = useState({ w: 1280, h: 720 });
-  const [view, setView] = useState<CameraView>('side');
+  const [userViewMode, setUserViewMode] = useState<UserViewMode>('AUTO');
+  const [voiceMode, setVoiceMode] = useState<VoiceCoachMode>('NORMAL');
+  const [showDebug, setShowDebug] = useState(false);
   const [calibrationReady, setCalibrationReady] = useState(false);
+  const [finishedRecords, setFinishedRecords] = useState<WorkoutRepRecord[]>([]);
 
   const failWith = useCallback((p: CaptureError) => {
     setError(p);
@@ -88,8 +74,6 @@ export default function WorkoutPage() {
     (async () => {
       const m = await loadFormModel('/models');
       if (cancelled) return;
-      // Keep the deterministic geometry engine as the fallback; the UI states
-      // which source is in use rather than hiding the difference.
       setModel(m ?? getFormModel());
       setModelAvailable(m !== null);
     })();
@@ -100,9 +84,6 @@ export default function WorkoutPage() {
 
   // -------------------------------------------------------------------------
   // Camera + pose lifecycle
-  //
-  // Cleanup is critical: a leaked MediaStream leaves the camera light on after
-  // the user navigates away, and leaks a rAF loop.
   // -------------------------------------------------------------------------
   useEffect(() => {
     const camera = new CameraEngine();
@@ -142,7 +123,6 @@ export default function WorkoutPage() {
         targetFps: 20,
         onStatus: (s) => setPoseStatus(s),
         onFrame: (frame) => {
-          // Straight into the session; no React state involved.
           poseBridgeRef.current?.(frame);
         },
       });
@@ -175,25 +155,21 @@ export default function WorkoutPage() {
 
     const s = new WorkoutSession({
       mode: 'workout',
-      view,
+      view: userViewMode,
       model,
+      voiceMode,
       callbacks: {
         onSnapshot: (snap) => {
           setSnapshot(snap);
-          // The session owns the phase; the page mirrors it rather than
-          // maintaining its own idea of where the workout is.
           setPhase(snap.phase);
         },
-        // Keep the FULL assessment, not just the snapshot's reduced
-        // LiveRepFeedback: `buildFeedback()` needs the real `borderline` and
-        // `confidence` values to express uncertainty honestly.
         onRep: (assessment) => setLastAssessment(assessment),
       },
     });
     sessionRef.current = s;
     s.beginCalibration();
     setPhase('calibrating');
-  }, [model, startCamera, startPose, view]);
+  }, [model, startCamera, startPose, userViewMode, voiceMode]);
 
   const handleBeginCounting = useCallback(() => {
     const s = sessionRef.current;
@@ -212,37 +188,36 @@ export default function WorkoutPage() {
 
     const metrics = s.getMetrics();
     const records = s.getRepRecords();
+    setFinishedRecords(records);
 
-    // Persist. Never stores video — only the numeric results.
     await saveSession({
       startedAt: new Date(Date.now() - s.getElapsedSeconds() * 1000).toISOString(),
       endedAt: new Date().toISOString(),
       durationSeconds: Math.round(s.getElapsedSeconds()),
       metrics,
       reps: records,
-      viewType: view,
+      viewType: (snapshot?.view ?? 'side') as CameraView,
       mode: 'workout',
     });
 
     setSnapshot(s.buildSnapshotForUi());
     setPhase('finished');
-  }, [view]);
+  }, [snapshot?.view]);
 
-  // -------------------------------------------------------------------------
-  // Derived UI values — every one comes from a real measurement or is null.
-  // -------------------------------------------------------------------------
+  const handleViewChange = (v: UserViewMode) => {
+    setUserViewMode(v);
+    sessionRef.current?.setUserViewMode(v);
+  };
+
+  const handleVoiceChange = (m: VoiceCoachMode) => {
+    setVoiceMode(m);
+    sessionRef.current?.setVoiceMode(m);
+  };
+
   const metrics = snapshot?.metrics ?? null;
-  /**
-   * The complete `RepAssessment` from `onRep` is the single source for the
-   * feedback panel, the component meters and the tip. It carries the real
-   * `borderline` / `confidence` flags, so a rep that sits within 0.08 of the
-   * decision threshold is reported as "Good rep — just" instead of being
-   * asserted as a clean verdict. Building a synthetic assessment here (as this
-   * page used to, with `borderline: false` and `confidence: 0` hardcoded) made
-   * the borderline branch unreachable and mislabelled the score source.
-   */
   const components = lastAssessment?.components ?? null;
   const feedback = lastAssessment ? buildFeedback(lastAssessment) : null;
+  const coachAction = snapshot?.lastCoachAction ?? null;
 
   const overlayMessage = error
     ? null
@@ -255,10 +230,17 @@ export default function WorkoutPage() {
         : null;
 
   // -------------------------------------------------------------------------
-  // Render
+  // Render finished result
   // -------------------------------------------------------------------------
   if (phase === 'finished') {
-    return <SessionResult onRestart={() => window.location.reload()} />;
+    return (
+      <SessionResult
+        metrics={metrics}
+        reps={finishedRecords}
+        elapsedSeconds={snapshot?.elapsedSeconds ?? 0}
+        onRestart={() => window.location.reload()}
+      />
+    );
   }
 
   return (
@@ -267,20 +249,9 @@ export default function WorkoutPage() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         {/* ---------------- LEFT: camera ---------------- */}
-        <section aria-label="Live camera">
+        <section aria-label="Live camera" className="relative">
           <CameraStage
             ref={stageRef}
-            /*
-             * This MUST forward to the session. CameraStage owns the module
-             * level `poseBridgeRef` and publishes its own internal handler
-             * there; that ref is the path INTO the stage, not out of it. The
-             * pose engine therefore lands frames on CameraStage, which draws
-             * the skeleton and then calls this prop.
-             *
-             * Leaving this as a no-op meant frames were drawn but never
-             * reached WorkoutSession, so the rep counter never advanced and
-             * every metric stayed empty while the camera looked fine.
-             */
             onPoseFrame={(frame) => {
               sessionRef.current?.onPoseFrame(frame);
             }}
@@ -290,13 +261,25 @@ export default function WorkoutPage() {
             videoHeight={videoDims.h}
           />
 
+          {/* Development Debug Diagnostics Overlay (Spec §29) */}
+          {showDebug && snapshot?.diagnostics && (
+            <DevDiagnosticsOverlay diagnostics={snapshot.diagnostics} />
+          )}
+
           {phase === 'idle' && !error && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button className="btn-primary" onClick={handleStart}>
                 <PlayIcon />
                 Start Workout
               </button>
-              <ViewSelector value={view} onChange={setView} />
+              <ViewSelector value={userViewMode} onChange={handleViewChange} />
+              <VoiceSelector value={voiceMode} onChange={handleVoiceChange} />
+              <button
+                className={clsx('btn-secondary text-xs', showDebug && 'bg-base-hover border-accent text-accent')}
+                onClick={() => setShowDebug((d) => !d)}
+              >
+                {showDebug ? 'Hide Debug' : 'Debug'}
+              </button>
               {modelAvailable === false && (
                 <span className="chip-neutral">
                   Rule-based scoring (model not loaded)
@@ -318,7 +301,7 @@ export default function WorkoutPage() {
           )}
 
           {phase === 'active' && (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="chip-neutral">
                 <span className="font-mono text-[11px]">
                   elbow{' '}
@@ -333,9 +316,18 @@ export default function WorkoutPage() {
               <span className="chip-neutral">
                 cycle {snapshot ? formatPercent(snapshot.cycleProgress * 100, 0) : '--'}
               </span>
+              <span className="chip-neutral text-xs">
+                view {snapshot?.detectedV2View?.replace('VIEW_', '') ?? userViewMode}
+              </span>
+              <button
+                className={clsx('chip-neutral hover:bg-base-hover cursor-pointer text-xs', showDebug && 'text-accent border-accent')}
+                onClick={() => setShowDebug((d) => !d)}
+              >
+                {showDebug ? 'Hide Debug' : 'Debug'}
+              </button>
               <div className="flex-1" />
               <p className="text-xs text-ink-faint">
-                Camera frames are analyzed for pose estimation and are not stored.
+                Frames processed locally · not stored
               </p>
             </div>
           )}
@@ -363,8 +355,6 @@ export default function WorkoutPage() {
             <button
               className="btn-danger"
               onClick={handleEnd}
-              // Paused is included deliberately: a session that auto-paused
-              // because the pose was lost must still be endable and saveable.
               disabled={
                 phase !== 'active' && phase !== 'calibrating' && phase !== 'paused'
               }
@@ -374,8 +364,8 @@ export default function WorkoutPage() {
             </button>
           </div>
 
-          {/* Rep counters */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Rep counters (Total / Valid / Invalid / Uncertain) */}
+          <div className="grid grid-cols-4 gap-2 sm:gap-3">
             <MetricCard
               label="Reps"
               value={metrics ? metrics.totalReps : null}
@@ -383,24 +373,24 @@ export default function WorkoutPage() {
               caption={metrics && metrics.totalReps === 0 ? 'waiting' : undefined}
             />
             <MetricCard
-              label="Valid reps"
+              label="Valid"
               value={metrics ? metrics.validReps : null}
               tone="good"
               emphasis
             />
             <MetricCard
-              label="Invalid reps"
+              label="Invalid"
               value={metrics ? metrics.invalidReps : null}
               tone="bad"
               emphasis
             />
+            <MetricCard
+              label="Uncertain"
+              value={metrics ? (metrics.uncertainReps ?? 0) : null}
+              emphasis
+            />
           </div>
 
-          {/*
-            The rep tally changes without any user action, so it is a polite
-            live region. The feedback panel announces the quality of each rep;
-            this announces the count, which the headline does not carry.
-          */}
           <p className="sr-only" role="status" aria-live="polite">
             {metrics
               ? `${metrics.totalReps} reps recorded, ${metrics.validReps} valid, ${metrics.invalidReps} invalid.`
@@ -429,7 +419,7 @@ export default function WorkoutPage() {
             </div>
           </div>
 
-          {/* Form analysis */}
+          {/* Form analysis meters */}
           <div className="card p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-ink">Form analysis</h2>
@@ -444,15 +434,7 @@ export default function WorkoutPage() {
               <MeterRow label="Depth" value={components?.depth ?? null} />
               <MeterRow label="Body alignment" value={components?.alignment ?? null} />
               <MeterRow label="Tempo" value={components?.tempo ?? null} />
-              <MeterRow
-                label="Consistency"
-                value={components?.consistency ?? null}
-              />
-              {/*
-                Range of motion is a real scored component (weight 0.10 in
-                FORM_SCORE.md §2) and is folded into repScore, so it is shown
-                live like the other four rather than being hidden.
-              */}
+              <MeterRow label="Consistency" value={components?.consistency ?? null} />
               <MeterRow label="Range of motion" value={components?.rom ?? null} />
             </div>
             {!lastAssessment && (
@@ -466,7 +448,7 @@ export default function WorkoutPage() {
 
       {/* ---------------- BOTTOM: feedback ---------------- */}
       <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <FeedbackPanel feedback={feedback} />
+        <FeedbackPanel feedback={feedback} coachAction={coachAction} />
         <TipPanel issue={lastAssessment?.primaryIssue ?? null} />
       </section>
     </div>
@@ -477,12 +459,64 @@ export default function WorkoutPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function DevDiagnosticsOverlay({ diagnostics }: { diagnostics: DevDiagnosticsSnapshot }) {
+  return (
+    <div
+      className="absolute top-3 left-3 z-30 max-w-xs rounded-card border border-accent/40 bg-base/90 p-3 backdrop-blur font-mono text-[10px] text-ink shadow-lg"
+      aria-label="Development diagnostics"
+    >
+      <div className="mb-1.5 flex items-center justify-between border-b border-base-border pb-1 font-bold text-accent">
+        <span>V2 POSE DIAGNOSTICS</span>
+        <span className="rounded bg-accent/20 px-1 text-[9px]">{diagnostics.fsmState}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+        <span className="text-ink-muted">View:</span>
+        <span className="text-right font-semibold">{diagnostics.detectedView} ({(diagnostics.viewConfidence * 100).toFixed(0)}%)</span>
+
+        <span className="text-ink-muted">L / R Elbow:</span>
+        <span className="text-right">{diagnostics.elbowLeft?.toFixed(0) ?? '--'}° / {diagnostics.elbowRight?.toFixed(0) ?? '--'}°</span>
+
+        <span className="text-ink-muted">Comb. Elbow:</span>
+        <span className="text-right font-semibold text-accent">{diagnostics.elbowCombined?.toFixed(0) ?? '--'}°</span>
+
+        <span className="text-ink-muted">2D / 3D Signal:</span>
+        <span className="text-right">{diagnostics.elbow2D?.toFixed(0) ?? '--'} / {diagnostics.elbow3D?.toFixed(2) ?? '--'}</span>
+
+        <span className="text-ink-muted">ROM Top/Bot:</span>
+        <span className="text-right">{diagnostics.romTop?.toFixed(0) ?? '--'}° / {diagnostics.romBottom?.toFixed(0) ?? '--'}°</span>
+
+        <span className="text-ink-muted">Phase Progress:</span>
+        <span className="text-right">{((diagnostics.normalizedPhase ?? 0) * 100).toFixed(0)}%</span>
+
+        <span className="text-ink-muted">Pose Conf:</span>
+        <span className="text-right">{((diagnostics.poseConfidence ?? 0) * 100).toFixed(0)}%</span>
+
+        <span className="text-ink-muted">Sh/Hip Depth:</span>
+        <span className="text-right">{diagnostics.shoulderDepth?.toFixed(2) ?? '--'} / {diagnostics.hipDepth?.toFixed(2) ?? '--'}</span>
+      </div>
+      <div className="mt-1.5 border-t border-base-border pt-1 text-[9px] text-ink-muted">
+        {diagnostics.recalibrationStatus}
+      </div>
+    </div>
+  );
+}
+
 function FeedbackPanel({
   feedback,
+  coachAction,
 }: {
   feedback: ReturnType<typeof buildFeedback> | null;
+  coachAction: any | null;
 }) {
-  const tone = feedback?.tone ?? 'neutral';
+  const isCorrection = coachAction?.isCorrection ?? false;
+  const headline = isCorrection
+    ? coachAction.message
+    : coachAction?.message ?? feedback?.headline ?? 'Waiting for your first rep';
+
+  const tone = isCorrection
+    ? 'positive'
+    : feedback?.tone ?? 'neutral';
+
   const iconBg =
     tone === 'positive'
       ? 'bg-accent text-base'
@@ -503,10 +537,17 @@ function FeedbackPanel({
       >
         {tone === 'positive' ? <CheckIcon /> : tone === 'corrective' ? <AlertIcon /> : <InfoIcon />}
       </div>
-      <div className="min-w-0">
-        <div className="metric-label">Feedback</div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="metric-label">Feedback</span>
+          {isCorrection && (
+            <span className="rounded-chip bg-accent/20 px-2 py-0.5 text-[11px] font-bold text-accent">
+              CORRECTED
+            </span>
+          )}
+        </div>
         <div className="mt-0.5 text-lg font-semibold text-ink">
-          {feedback?.headline ?? 'Waiting for your first rep'}
+          {headline}
         </div>
         <p className="mt-0.5 text-sm text-ink-muted">
           {feedback?.detail ??
@@ -576,13 +617,14 @@ function ViewSelector({
   value,
   onChange,
 }: {
-  value: CameraView;
-  onChange: (v: CameraView) => void;
+  value: UserViewMode;
+  onChange: (v: UserViewMode) => void;
 }) {
-  const options: { v: CameraView; label: string }[] = [
-    { v: 'side', label: 'Side' },
-    { v: 'diagonal', label: 'Diagonal' },
-    { v: 'front', label: 'Front' },
+  const options: { v: UserViewMode; label: string }[] = [
+    { v: 'AUTO', label: 'Auto' },
+    { v: 'FRONT', label: 'Front' },
+    { v: 'SIDE', label: 'Side' },
+    { v: 'DIAGONAL', label: 'Diagonal' },
   ];
   return (
     <div
@@ -599,7 +641,45 @@ function ViewSelector({
           className={clsx(
             'rounded-chip px-3 py-1.5 text-xs font-medium transition-colors',
             value === o.v
-              ? 'bg-base-hover text-ink'
+              ? 'bg-base-hover text-ink font-semibold'
+              : 'text-ink-muted hover:text-ink',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function VoiceSelector({
+  value,
+  onChange,
+}: {
+  value: VoiceCoachMode;
+  onChange: (v: VoiceCoachMode) => void;
+}) {
+  const options: { v: VoiceCoachMode; label: string }[] = [
+    { v: 'OFF', label: 'Mute' },
+    { v: 'NORMAL', label: 'Voice' },
+    { v: 'ACTIVE', label: 'Active' },
+  ];
+  return (
+    <div
+      className="flex items-center gap-1 rounded-control border border-base-border bg-base-raised p-1"
+      role="radiogroup"
+      aria-label="Voice coach mode"
+    >
+      {options.map((o) => (
+        <button
+          key={o.v}
+          role="radio"
+          aria-checked={value === o.v}
+          onClick={() => onChange(o.v)}
+          className={clsx(
+            'rounded-chip px-2.5 py-1.5 text-xs font-medium transition-colors',
+            value === o.v
+              ? 'bg-base-hover text-ink font-semibold'
               : 'text-ink-muted hover:text-ink',
           )}
         >
@@ -632,19 +712,188 @@ function ErrorBanner({ error, onRetry }: { error: CaptureError; onRetry: () => v
   );
 }
 
-function SessionResult({ onRestart }: { onRestart: () => void }) {
+function SessionResult({
+  metrics,
+  reps,
+  elapsedSeconds,
+  onRestart,
+}: {
+  metrics: any;
+  reps: WorkoutRepRecord[];
+  elapsedSeconds: number;
+  onRestart: () => void;
+}) {
+  const [selectedRep, setSelectedRep] = useState<WorkoutRepRecord | null>(null);
+
   return (
-    <div className="mx-auto max-w-lg px-5 py-16 text-center">
-      <h1 className="text-display font-semibold text-ink">Session complete</h1>
-      <p className="mt-2 text-sm text-ink-muted">
-        Your results were saved. Open Progress to see your history.
-      </p>
-      <div className="mt-6 flex justify-center gap-3">
+    <div className="mx-auto max-w-4xl px-5 py-10">
+      <div className="text-center">
+        <h1 className="text-display font-semibold text-ink">Workout Complete</h1>
+        <p className="mt-2 text-sm text-ink-muted">
+          Your workout has been recorded locally. Duration: {formatClock(elapsedSeconds)}.
+        </p>
+      </div>
+
+      {/* Overview Cards */}
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="card p-4 text-center">
+          <div className="metric-label">Total Reps</div>
+          <div className="text-metric font-bold text-ink">{metrics?.totalReps ?? 0}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="metric-label">Valid Reps</div>
+          <div className="text-metric font-bold text-accent">{metrics?.validReps ?? 0}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="metric-label">Invalid Reps</div>
+          <div className="text-metric font-bold text-danger">{metrics?.invalidReps ?? 0}</div>
+        </div>
+        <div className="card p-4 text-center">
+          <div className="metric-label">Form Score</div>
+          <div className="text-metric font-bold text-ink">
+            {metrics?.formScore !== null && Number.isFinite(metrics?.formScore) ? `${formatInt(metrics.formScore)}` : '--'}
+            <span className="text-sm font-normal text-ink-faint">/100</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Rep-by-Rep Breakdown (Spec §30) */}
+      <div className="mt-8 card p-5">
+        <h2 className="text-base font-semibold text-ink">Rep-by-Rep Form Breakdown</h2>
+        <p className="text-xs text-ink-muted mt-1">
+          Click any repetition to inspect measured geometric components and ML probability.
+        </p>
+
+        {reps.length === 0 ? (
+          <p className="mt-4 text-sm text-ink-faint italic text-center py-6">No repetitions completed.</p>
+        ) : (
+          <div className="mt-4 divide-y divide-base-border overflow-hidden rounded-control border border-base-border">
+            {reps.map((r) => {
+              const status = r.uncertain
+                ? 'UNCERTAIN'
+                : r.valid
+                  ? 'VALID'
+                  : 'INVALID';
+              const statusBg =
+                status === 'VALID'
+                  ? 'bg-accent/15 text-accent'
+                  : status === 'INVALID'
+                    ? 'bg-danger/15 text-danger'
+                    : 'bg-warn/15 text-warn';
+
+              return (
+                <div
+                  key={r.repNumber}
+                  onClick={() => setSelectedRep(r)}
+                  className="flex cursor-pointer items-center justify-between p-3.5 transition-colors hover:bg-base-raised"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-bold text-ink">#{r.repNumber}</span>
+                    <span className={clsx('rounded px-2 py-0.5 text-xs font-semibold', statusBg)}>
+                      {status}
+                    </span>
+                    {r.isCorrection && (
+                      <span className="rounded bg-accent/20 px-2 py-0.5 text-[11px] font-bold text-accent">
+                        ✓ CORRECTED
+                      </span>
+                    )}
+                    {r.detectedIssue && (
+                      <span className="text-xs text-ink-muted">
+                        Issue: <span className="font-medium text-ink">{r.detectedIssue.replace(/_/g, ' ')}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-xs font-mono text-ink">
+                    <span>Score: <strong>{r.repScore?.toFixed(0) ?? '--'}</strong></span>
+                    <span>Depth: {r.depthScore?.toFixed(0) ?? '--'}</span>
+                    <span className="text-ink-muted text-sm">›</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Rep Details Modal */}
+      {selectedRep && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedRep(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-card border border-base-border bg-base p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-base-border pb-3">
+              <h3 className="text-lg font-bold text-ink">Rep #{selectedRep.repNumber} Assessment</h3>
+              <button
+                className="text-ink-muted hover:text-ink text-sm font-bold"
+                onClick={() => setSelectedRep(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-4 space-y-2.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Verdict:</span>
+                <span className="font-bold">
+                  {selectedRep.uncertain ? 'UNCERTAIN' : selectedRep.valid ? 'VALID (GOOD)' : 'INVALID (BAD)'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">ML P(good):</span>
+                <span className="font-mono">{Number.isFinite(selectedRep.formProbability) ? (selectedRep.formProbability * 100).toFixed(1) + '%' : 'Geometry Only'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Overall Rep Score:</span>
+                <span className="font-mono font-bold">{selectedRep.repScore?.toFixed(1) ?? '--'} / 100</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Depth Score:</span>
+                <span className="font-mono">{selectedRep.depthScore?.toFixed(1) ?? '--'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Alignment Score:</span>
+                <span className="font-mono">{selectedRep.alignmentScore?.toFixed(1) ?? '--'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Tempo Score:</span>
+                <span className="font-mono">{selectedRep.tempoScore?.toFixed(1) ?? '--'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Duration:</span>
+                <span className="font-mono">{selectedRep.repDurationSeconds?.toFixed(2) ?? '--'} s</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Min Elbow Angle:</span>
+                <span className="font-mono">{selectedRep.minElbowAngleDeg?.toFixed(0) ?? '--'}°</span>
+              </div>
+              {selectedRep.coachMessage && (
+                <div className="mt-3 rounded border border-base-border bg-base-raised p-2 text-xs">
+                  <span className="font-semibold text-accent">Coach:</span> "{selectedRep.coachMessage}"
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button className="btn-secondary" onClick={() => setSelectedRep(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation actions */}
+      <div className="mt-8 flex justify-center gap-4">
         <button className="btn-primary" onClick={onRestart}>
-          Try again
+          Start New Workout
         </button>
-        <Link href="/progress" className="btn-secondary">
-          View progress
+        <Link href="/challenge" className="btn-secondary">
+          Try Challenge Mode
+        </Link>
+        <Link href="/leaderboard" className="btn-secondary">
+          View Leaderboard
         </Link>
       </div>
     </div>
@@ -652,7 +901,7 @@ function SessionResult({ onRestart }: { onRestart: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Icons (inline, no icon library dependency)
+// Inline Icons
 // ---------------------------------------------------------------------------
 
 function PlayIcon() {

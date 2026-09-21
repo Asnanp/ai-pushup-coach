@@ -251,7 +251,8 @@ def tracking_quality(elbow_series: "np.ndarray") -> dict[str, float | bool]:
         reasons.append("insufficient_range")
     if median_step < MIN_TRACKED_MEDIAN_STEP_DEG:
         reasons.append("frozen_signal")
-    if reversal_fraction > MAX_REVERSAL_FRACTION:
+    # Allow natural limb foreshortening/tremor in front view if ROM is clear (>= 25 deg)
+    if (reversal_fraction > 0.28) or (reversal_fraction > MAX_REVERSAL_FRACTION and rom < 25.0):
         reasons.append("unstable_signal")
 
     return {

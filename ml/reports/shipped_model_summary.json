@@ -1,0 +1,80 @@
+{
+  "model_type": "RandomForestClassifier",
+  "feature_spec_version": 1,
+  "n_features": 34,
+  "decision_threshold": 0.58,
+  "positive_class": 0,
+  "positive_class_meaning": "P(good form)",
+  "test_metrics": {
+    "accuracy": 0.7463414634146341,
+    "macro_f1": 0.7411616161616161,
+    "roc_auc": 0.7580309339678764,
+    "precision_good": 0.8198198198198198,
+    "recall_good": 0.7398373983739838,
+    "f1_good": 0.7777777777777778,
+    "precision_bad": 0.6595744680851063,
+    "recall_bad": 0.7560975609756098,
+    "f1_bad": 0.7045454545454546,
+    "confusion_matrix": [
+      [
+        91,
+        32
+      ],
+      [
+        20,
+        62
+      ]
+    ]
+  },
+  "per_view": {},
+  "per_subject": {},
+  "feature_names": [
+    "elbow_angle_deg_mean",
+    "elbow_angle_deg_min",
+    "elbow_angle_deg_max",
+    "shoulder_angle_deg_mean",
+    "hip_angle_deg_mean",
+    "hip_angle_deg_min",
+    "knee_angle_deg_mean",
+    "body_line_deviation_mean",
+    "body_line_deviation_max_abs",
+    "body_line_deviation_std",
+    "shoulder_hip_ankle_angle_deg_mean",
+    "torso_slope_deg_mean",
+    "shoulder_ankle_height_delta_mean",
+    "shoulder_elbow_height_delta_min",
+    "shoulder_elbow_height_delta_mean",
+    "rom_elbow_deg",
+    "min_elbow_angle_deg",
+    "depth_ratio",
+    "elbow_angular_velocity_max",
+    "elbow_angular_velocity_mean",
+    "elbow_velocity_down_mean",
+    "elbow_velocity_up_mean",
+    "rep_duration_s",
+    "descent_duration_s",
+    "ascent_duration_s",
+    "descent_ascent_ratio",
+    "elbow_angle_std",
+    "hip_height_std",
+    "hip_vertical_velocity_max",
+    "shoulder_vertical_velocity_max",
+    "pause_at_bottom_s",
+    "jitter_score",
+    "body_line_deviation_range",
+    "elbow_angle_opposite_deg_mean"
+  ],
+  "excluded_capture_features": [
+    "jitter_max",
+    "jitter_mean",
+    "jitter_std",
+    "low_confidence_ratio",
+    "mean_visibility",
+    "min_visibility",
+    "tracking_gap_ratio"
+  ],
+  "checksums": {
+    "pushup_form_model.json": "5cd196acafc3c69f9da42f000493380a4bd5fa6c30d7a4975dddd14d2891bd7f",
+    "pushup_form_model.metadata.json": "cc924a95ae59f8b1cd1ef7004373d4cdd8f464a95635c2384f6f51310bac40c7"
+  }
+}

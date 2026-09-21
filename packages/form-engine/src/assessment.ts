@@ -232,12 +232,24 @@ export function assessRep(
     scoreSource = 'geometry-only';
   }
 
-  // --- label ---
-  // Both conditions must hold: model confidence AND a geometric floor.
-  // The floor catches reps the model likes but that break a hard rule.
+  // --- label & uncertainty ---
+  // Both conditions must hold for confident GOOD: model confidence AND geometric floor.
   const threshold = deps.decisionThreshold;
   const modelSaysGood = hasModel ? goodProbability >= threshold : true;
   const geometrySaysGood = !Number.isFinite(geo) || geo >= 55;
+
+  const borderline =
+    Number.isFinite(goodProbability) && Math.abs(goodProbability - threshold) < 0.08;
+
+  const uncertain = Boolean(missing || borderline);
+  let formStatus: 'GOOD' | 'BAD' | 'UNCERTAIN';
+  if (uncertain) {
+    formStatus = 'UNCERTAIN';
+  } else if (modelSaysGood && geometrySaysGood) {
+    formStatus = 'GOOD';
+  } else {
+    formStatus = 'BAD';
+  }
 
   let label: RepAssessment['label'];
   let valid: boolean;
@@ -245,6 +257,11 @@ export function assessRep(
   if (missing) {
     label = 'unknown';
     valid = false;
+  } else if (uncertain) {
+    // An uncertain repetition may still count geometrically if geometry meets the floor.
+    // We preserve user reps when camera data is borderline rather than penalizing them.
+    label = geometrySaysGood ? 'good' : 'bad';
+    valid = geometrySaysGood;
   } else if (modelSaysGood && geometrySaysGood) {
     label = 'good';
     valid = true;
@@ -259,9 +276,6 @@ export function assessRep(
       : 1 - goodProbability
     : 0;
 
-  const borderline =
-    Number.isFinite(goodProbability) && Math.abs(goodProbability - threshold) < 0.08;
-
   // --- issue attribution ---
   const issues = detectIssues(raw, input.view);
   const primaryIssue = issues.length ? issues[0].code : null;
@@ -270,6 +284,8 @@ export function assessRep(
   return {
     repIndex: input.repIndex,
     label,
+    formStatus,
+    uncertain,
     confidence,
     goodProbability,
     valid,

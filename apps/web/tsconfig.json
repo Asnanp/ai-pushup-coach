@@ -42,6 +42,9 @@
       ],
       "@ai-pushup-coach/form-engine": [
         "../../packages/form-engine/src/index.ts"
+      ],
+      "@ai-pushup-coach/coach-engine": [
+        "../../packages/coach-engine/src/index.ts"
       ]
     }
   },

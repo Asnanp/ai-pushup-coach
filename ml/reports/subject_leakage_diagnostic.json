@@ -1,0 +1,58 @@
+{
+  "v1_leakage": {
+    "n_samples": 712,
+    "n_subjects": 20,
+    "random_guess_accuracy": 0.05,
+    "subject_prediction_accuracy_mean": 0.8174,
+    "subject_prediction_accuracy_std": 0.0359,
+    "fold_accuracies": [
+      0.8392,
+      0.8042,
+      0.7676,
+      0.8028,
+      0.8732
+    ],
+    "top_leaking_features": [
+      {
+        "feature": "shoulder_elbow_height_delta_mean",
+        "importance": 0.0594
+      },
+      {
+        "feature": "shoulder_elbow_height_delta_min",
+        "importance": 0.0543
+      },
+      {
+        "feature": "knee_angle_deg_mean",
+        "importance": 0.0534
+      },
+      {
+        "feature": "elbow_angle_std",
+        "importance": 0.0477
+      },
+      {
+        "feature": "shoulder_ankle_height_delta_mean",
+        "importance": 0.0458
+      },
+      {
+        "feature": "mean_visibility",
+        "importance": 0.0429
+      },
+      {
+        "feature": "shoulder_angle_deg_mean",
+        "importance": 0.0416
+      },
+      {
+        "feature": "min_visibility",
+        "importance": 0.0414
+      },
+      {
+        "feature": "body_line_deviation_range",
+        "importance": 0.0406
+      },
+      {
+        "feature": "body_line_deviation_mean",
+        "importance": 0.0392
+      }
+    ]
+  }
+}

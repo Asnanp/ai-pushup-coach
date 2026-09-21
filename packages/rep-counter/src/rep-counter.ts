@@ -15,7 +15,7 @@
  * an entire subject whose front-view elbow angle peaked at 136deg.
  */
 
-import type { FrameFeatures, RepEvent, RepState, RepThresholds } from '@ai-pushup-coach/types';
+import type { FrameFeatures, RepEvent, RepMotionSignal, RepState, RepThresholds } from '@ai-pushup-coach/types';
 
 // Autorange fractions — must match ml/src/rep_segmenter.py
 export const UP_FRACTION = 0.72;
@@ -297,10 +297,21 @@ export interface RepCounterOptions {
   minRom?: number;
   minRepSeconds?: number;
   maxRepSeconds?: number;
+  adaptive?: boolean;
+}
+
+export interface CalibrationTelemetry {
+  initialTop: number;
+  initialBottom: number;
+  rollingTop: number;
+  rollingBottom: number;
+  effectiveTop: number;
+  effectiveBottom: number;
+  repsCount: number;
 }
 
 /**
- * Finite-state rep segmenter with hysteresis.
+ * Finite-state rep segmenter with hysteresis and continuous adaptive calibration.
  *
  *   READY -> UP -> DESCENDING -> DOWN -> ASCENDING -> UP (+emit rep)
  *
@@ -314,6 +325,7 @@ export class RepCounter {
   private readonly minRom: number;
   private readonly minRepSeconds: number;
   private readonly maxRepSeconds: number;
+  private readonly adaptive: boolean;
 
   private smoother = new CausalSmoother();
   private median = new MedianFilter();
@@ -323,6 +335,14 @@ export class RepCounter {
   private repMin = 180;
   private repMax = 0;
   private phaseExtreme = 180;
+
+  // Continuous calibration tracking
+  private initialTop = 160;
+  private initialBottom = 90;
+  private rollingTops: number[] = [];
+  private rollingBottoms: number[] = [];
+  private effectiveTop = 160;
+  private effectiveBottom = 90;
 
   /**
    * True until the signal first reaches the top of the movement. While set, the
@@ -342,6 +362,14 @@ export class RepCounter {
     this.minRom = opts.minRom ?? MIN_DETECTABLE_ROM_DEG;
     this.minRepSeconds = opts.minRepSeconds ?? MIN_REP_SECONDS;
     this.maxRepSeconds = opts.maxRepSeconds ?? MAX_REP_SECONDS;
+    this.adaptive = opts.adaptive ?? true;
+
+    if (this.thresholds.calibrated && Number.isFinite(this.thresholds.observedMax)) {
+      this.initialTop = this.thresholds.observedMax;
+      this.initialBottom = this.thresholds.observedMin;
+      this.effectiveTop = this.thresholds.observedMax;
+      this.effectiveBottom = this.thresholds.observedMin;
+    }
   }
 
   getState(): RepState {
@@ -350,6 +378,18 @@ export class RepCounter {
 
   getThresholds(): Readonly<RepThresholds> {
     return this.thresholds;
+  }
+
+  getCalibrationTelemetry(): CalibrationTelemetry {
+    return {
+      initialTop: this.initialTop,
+      initialBottom: this.initialBottom,
+      rollingTop: this.rollingTops.length ? median(this.rollingTops) : this.initialTop,
+      rollingBottom: this.rollingBottoms.length ? median(this.rollingBottoms) : this.initialBottom,
+      effectiveTop: this.effectiveTop,
+      effectiveBottom: this.effectiveBottom,
+      repsCount: this.count,
+    };
   }
 
   getRepCount(): number {
@@ -380,6 +420,23 @@ export class RepCounter {
 
   setThresholds(t: RepThresholds): void {
     this.thresholds = t;
+    /*
+     * Seed the adaptive-calibration baseline here as well as in the
+     * constructor. The live session constructs `new RepCounter()` and only
+     * receives its calibrated band AFTER the calibration screen, via this
+     * method -- the constructor seed never saw real data, so the first
+     * adaptive update blended 0.7 of the hardcoded 160/90 fallback into the
+     * user's actual band. With a real band of, say, 102-170 the blend placed
+     * downEnter below the smoothed signal's reach and silently dropped reps
+     * (measured: 3 synthetic reps counted 2; telemetry showed
+     * effectiveBottom dragged to 93.6 against a real ~102).
+     */
+    if (t.calibrated && Number.isFinite(t.observedMax) && Number.isFinite(t.observedMin)) {
+      this.initialTop = t.observedMax;
+      this.initialBottom = t.observedMin;
+      this.effectiveTop = t.observedMax;
+      this.effectiveBottom = t.observedMin;
+    }
   }
 
   reset(): void {
@@ -433,15 +490,30 @@ export class RepCounter {
   }
 
   /**
-   * Feed one frame. Returns the completed RepEvent on the frame that finishes
+   * Feed one frame or motion signal. Returns the completed RepEvent on the frame that finishes
    * a rep, otherwise null.
    */
-  feed(frame: FrameFeatures): RepEvent | null {
-    if (!frame.valid) return null;
+  feed(
+    frame: FrameFeatures | RepMotionSignal | { elbowAngle?: number; phaseEvidence?: number; timestamp: number; valid?: boolean },
+    motionSignal?: RepMotionSignal,
+  ): RepEvent | null {
+    if ('valid' in frame && frame.valid === false) return null;
+
+    // Support both FrameFeatures (elbowAngle) and RepMotionSignal (phaseEvidence)
+    const evidence = (motionSignal && Number.isFinite(motionSignal.phaseEvidence))
+      ? motionSignal.phaseEvidence
+      : (frame as { phaseEvidence?: number }).phaseEvidence;
+    const elbow = (frame as { elbowAngle?: number }).elbowAngle;
+    const rawInput: number =
+      typeof evidence === 'number' && Number.isFinite(evidence)
+        ? evidence
+        : typeof elbow === 'number' && Number.isFinite(elbow)
+          ? elbow
+          : Number.NaN;
 
     // Reject anatomically impossible angles (collapsed-arm tracking errors)
     // before they can reach the smoother or the state machine.
-    const raw = maskImplausibleAngle(frame.elbowAngle);
+    const raw = maskImplausibleAngle(rawInput);
     if (!Number.isFinite(raw)) return null;
 
     // Smooth then de-spike. Order matters: median first would delay the
@@ -451,10 +523,10 @@ export class RepCounter {
     if (!Number.isFinite(angle)) return null;
     this.lastAngle = angle;
 
-    const t = frame.timestamp;
+    const t = ('timestamp' in frame && typeof frame.timestamp === 'number') ? frame.timestamp : 0;
     if (this.repStartTime === null) this.repStartTime = t;
 
-    this.frames.push(frame);
+    this.frames.push(frame as FrameFeatures);
     this.repMin = Math.min(this.repMin, angle);
     this.repMax = Math.max(this.repMax, angle);
 
@@ -543,6 +615,11 @@ export class RepCounter {
         frames: this.frames.slice(),
       };
       this.reps.push(event);
+
+      // Continuous adaptive recalibration at safe rep boundary
+      if (this.adaptive) {
+        this.updateAdaptiveThresholds(this.repMin, this.repMax);
+      }
     }
 
     // Reset: the top position is the boundary of the next rep.
@@ -555,4 +632,47 @@ export class RepCounter {
     this.frames = [];
     return event;
   }
+
+  private updateAdaptiveThresholds(repMin: number, repMax: number): void {
+    if (repMin < ELBOW_ANGLE_MIN_PLAUSIBLE || repMax > ELBOW_ANGLE_MAX_PLAUSIBLE) return;
+    this.rollingTops.push(repMax);
+    if (this.rollingTops.length > 5) this.rollingTops.shift();
+    this.rollingBottoms.push(repMin);
+    if (this.rollingBottoms.length > 5) this.rollingBottoms.shift();
+
+    if (this.rollingTops.length >= 2 && this.rollingBottoms.length >= 2) {
+      const medTop = median(this.rollingTops);
+      const medBottom = median(this.rollingBottoms);
+      const span = medTop - medBottom;
+      if (span >= this.minRom) {
+        // Safe update: blend smoothly with existing effective extrema
+        this.effectiveTop = 0.7 * this.effectiveTop + 0.3 * medTop;
+        this.effectiveBottom = 0.7 * this.effectiveBottom + 0.3 * medBottom;
+
+        const effectiveSpan = this.effectiveTop - this.effectiveBottom;
+        let upEnter = clamp(this.effectiveBottom + effectiveSpan * UP_FRACTION, UP_ENTER_MIN, UP_ENTER_MAX);
+        let upExit = clamp(this.effectiveBottom + effectiveSpan * UP_EXIT_FRACTION, upEnter - 12, upEnter - 2);
+        let downEnter = clamp(this.effectiveBottom + effectiveSpan * DOWN_FRACTION, DOWN_ENTER_MIN, DOWN_ENTER_MAX);
+        let downExit = clamp(this.effectiveBottom + effectiveSpan * DOWN_EXIT_FRACTION, downEnter + 2, downEnter + 15);
+
+        const lowFloor = this.effectiveBottom + effectiveSpan * 0.12;
+        const highCeiling = this.effectiveTop - effectiveSpan * 0.10;
+        if (downEnter > lowFloor) downEnter = lowFloor;
+        if (upEnter > highCeiling) upEnter = highCeiling;
+
+        if (downEnter < downExit && downExit < upExit && upExit < upEnter) {
+          this.thresholds = {
+            upEnter,
+            upExit,
+            downEnter,
+            downExit,
+            calibrated: true,
+            observedMin: this.effectiveBottom,
+            observedMax: this.effectiveTop,
+          };
+        }
+      }
+    }
+  }
 }
+

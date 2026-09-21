@@ -37,6 +37,45 @@ export interface PoseFrame {
 
 export type CameraView = 'side' | 'diagonal' | 'front';
 
+export type V2CameraView =
+  | 'VIEW_UNKNOWN'
+  | 'VIEW_FRONT'
+  | 'VIEW_SIDE_LEFT'
+  | 'VIEW_SIDE_RIGHT'
+  | 'VIEW_DIAGONAL_LEFT'
+  | 'VIEW_DIAGONAL_RIGHT';
+
+export type UserViewMode = 'AUTO' | 'FRONT' | 'SIDE' | 'DIAGONAL';
+
+export interface ViewEvidence {
+  shoulderWidthRel: number;
+  hipWidthRel: number;
+  shoulderDepthDiff: number;
+  hipDepthDiff: number;
+  visibilitySymmetry: number;
+  torsoYawDeg: number;
+}
+
+export interface ViewEstimate {
+  view: V2CameraView;
+  confidence: number;
+  evidence: ViewEvidence;
+  isLocked: boolean;
+}
+
+export interface RepMotionSignal {
+  timestamp: number;
+  phaseEvidence: number;
+  elbowLeft: number;
+  elbowRight: number;
+  elbowCombined: number;
+  shoulderMotion: number;
+  hipMotion: number;
+  worldDepthMotion: number;
+  poseConfidence: number;
+  view: V2CameraView;
+}
+
 // ---------------------------------------------------------------------------
 // Per-frame biomechanics (mirrors ml/src/features.py FrameFeatures)
 // ---------------------------------------------------------------------------
@@ -100,6 +139,37 @@ export interface RepEvent {
 // ---------------------------------------------------------------------------
 
 export type FormLabel = 'good' | 'bad' | 'unknown';
+export type FormStatus = 'GOOD' | 'BAD' | 'UNCERTAIN';
+
+export interface GeometryIssue {
+  issueCode: IssueCode;
+  severity: number;
+  confidence: number;
+  measurements: Record<string, number>;
+  evidence: string;
+}
+
+export type CalibrationPhase = 'CAMERA_CHECK' | 'MOVEMENT_CALIBRATION' | 'READY';
+
+export interface TwoStageCalibrationState {
+  phase: CalibrationPhase;
+  cameraChecksPassed: boolean;
+  calibrationRepsCompleted: number;
+  calibrationRepsRequired: number;
+  observedTop: number;
+  observedBottom: number;
+  effectiveRom: number;
+  feedbackPrompt: string;
+  ready: boolean;
+}
+
+export interface CorrectionStatus {
+  targetIssue: IssueCode;
+  baselineMetric: number;
+  currentMetric: number;
+  improved: boolean;
+  message: string;
+}
 
 export type IssueCode =
   | 'INCOMPLETE_DEPTH'
@@ -124,6 +194,8 @@ export interface ScoreComponents {
 export interface RepAssessment {
   repIndex: number;
   label: FormLabel;
+  formStatus?: FormStatus;
+  uncertain?: boolean;
   /** Model probability of the `label` class. */
   confidence: number;
   /** Raw P(good) from the model, regardless of label. */
@@ -153,6 +225,7 @@ export interface WorkoutMetrics {
   totalReps: number;
   validReps: number;
   invalidReps: number;
+  uncertainReps?: number;
   formScore: number | null;
   bestStreak: number;
   meanRepSeconds: number | null;
@@ -169,6 +242,7 @@ export interface WorkoutSessionRecord {
   totalReps: number;
   validReps: number;
   invalidReps: number;
+  uncertainReps?: number;
   formScore: number | null;
   viewType: CameraView;
   mode: SessionMode;
@@ -183,6 +257,8 @@ export interface WorkoutRepRecord {
   valid: boolean;
   formProbability: number;
   formLabel: FormLabel;
+  formStatus?: FormStatus;
+  uncertain?: boolean;
   depthScore: number;
   alignmentScore: number;
   tempoScore: number;
@@ -193,6 +269,8 @@ export interface WorkoutRepRecord {
   repDurationSeconds: number;
   minElbowAngleDeg: number;
   bodyLineDeviationMax: number;
+  coachMessage?: string;
+  isCorrection?: boolean;
 }
 
 // ---------------------------------------------------------------------------

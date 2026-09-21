@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  * has to be re-declared here. Missing one is the classic
  * "Cannot find package '@ai-pushup-coach/...'" failure.
  */
-const packages = ['types', 'pose', 'biomechanics', 'rep-counter', 'form-engine'] as const;
+const packages = ['types', 'pose', 'biomechanics', 'rep-counter', 'form-engine', 'coach-engine'] as const;
 
 const alias: Record<string, string> = {
   // tsconfig maps "@/*" to "./*", so the bare "@" prefix points at apps/web.

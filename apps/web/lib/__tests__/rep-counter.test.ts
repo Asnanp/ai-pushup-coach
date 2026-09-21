@@ -548,3 +548,34 @@ describe('RepCounter', () => {
     expect(counter.getCycleProgress()).toBe(0);
   });
 });
+
+/**
+ * Regression: the continuous adaptive recalibration blended its baseline with
+ * the hardcoded 160/90 constructor defaults when the calibrated band arrived
+ * via `setThresholds` -- which is how the live session always delivers it
+ * (`new RepCounter()` at construction, thresholds only after the calibration
+ * screen). With a real band of ~102-170 the 0.7/0.3 blend dragged
+ * `effectiveBottom` to ~94, pushing `downEnter` below the smoothed signal's
+ * reach and silently dropping reps: 3 synthetic reps counted 2.
+ */
+describe('adaptive calibration seeding', () => {
+  it('seeds the adaptive baseline from setThresholds, not only the constructor', () => {
+    // A user whose real band sits far away from the 160/90 fallback defaults.
+    const { angles, times } = makeReps(4, 138, 102, 1.8, true, 18);
+    const cal = calibrateThresholds(internalSignal(angles));
+    expect(cal.calibrated).toBe(true);
+
+    const counter = new RepCounter();
+    counter.setThresholds(cal);
+    drive(counter, angles, times);
+
+    const tel = counter.getCalibrationTelemetry();
+    // The baseline must be the user's observed band, not the defaults.
+    expect(tel.initialTop).toBeCloseTo(cal.observedMax, 0);
+    expect(tel.initialBottom).toBeCloseTo(cal.observedMin, 0);
+    // ...and the effective band must stay inside it after per-rep updates.
+    expect(tel.effectiveTop).toBeLessThan(140);
+    expect(tel.effectiveBottom).toBeGreaterThan(100);
+    expect(counter.getRepCount()).toBe(4);
+  });
+});

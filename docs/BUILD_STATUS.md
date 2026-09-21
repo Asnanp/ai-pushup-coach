@@ -16,14 +16,14 @@ evidence. Where a real defect was found, it is listed with the fix.
 |---|---|---|---|
 | 1 | Pose estimation | **PASS** | `packages/pose` compiles clean; side-selection verified against real visibility data (visible side 0.98–1.00 vs occluded 0.18–0.42); 7 routes build |
 | 2 | Rep counter | **PASS** | 36 Vitest tests + 20 pytest tests; counts reps end-to-end through the real calibration path |
-| 3 | Form classifier | **PASS** | `RandomForest`, 34 features, threshold 0.46; test accuracy 0.683, macro-F1 0.619, ROC-AUC 0.735. Retrained on repaired features — see §2.11 |
+| 3 | Form classifier | **PASS** | `RandomForest`, 34 features, threshold 0.58; test accuracy 0.746, macro-F1 0.741, ROC-AUC 0.758, bad-form recall 0.756. Retrained on repaired features and GroupKFold cross-validation |
 | 4 | Model export parity | **PASS** | max \|export − sklearn\| = **1.110e-16** over 200 fixture cases (gate is 1e-6) |
 | 5 | Browser↔sklearn parity | **PASS** | TypeScript runtime vs sklearn: **1.110e-16** over 200 cases |
 | 6 | Feature parity (Py↔TS) | **PASS** | 37-value vector agrees to < 1e-6 across both implementations |
 | 7 | Frontend build | **PASS** | `next build` → Compiled successfully, 14/14 static pages |
 | 8 | Typecheck | **PASS** | `npm run typecheck` → 0 errors across 5 packages + web app |
 | 9 | Python tests | **PASS** | **46 passed, 0 failed, 0 skipped** |
-| 10 | Frontend tests | **PASS** | **162 passed** across 9 files |
+| 10 | Frontend tests | **PASS** | **165 passed** across 9 files |
 | 11 | API service | **PASS** | 44 tests pass; all endpoints exercised over HTTP; `/health` reports live parity |
 | 12 | Database schema | **PASS** | 3 migrations + seed; 4 tables, 5 enums, 8 RLS policies, parsed with libpg_query |
 | 13 | Progress charts | **PASS** | 4 Recharts views, dark-themed, real stored sessions only |
@@ -40,7 +40,7 @@ evidence. Where a real defect was found, it is listed with the fix.
 ```bash
 npm run typecheck          # 0 errors
 npm run test:py            # 46 passed, 0 skipped
-npm --prefix apps/web run test   # 162 passed
+npm --prefix apps/web run test   # 165 passed
 npm run build              # packages + Next production build
 node scripts/acceptance.mjs      # 16 PASS / 0 FAIL / 0 SKIP
 
@@ -288,6 +288,28 @@ logic.
 gap is informative: it shows the segmentation logic is sound (error 2) and **calibration is the
 remaining bottleneck**, not the state machine.
 
+### 2.15 The camera check hard-required a side view — front push-ups could never start
+
+Found by live use, not by any test: with the **Front** view selected, the calibration panel's
+orientation check demanded `sideDominance ≥ 0.55` (≈1.0 for a side-on body, ≈0.0 face-on) with
+the label hardcoded to 'Side view'. The **Start counting** button is disabled until every check
+passes, so a front-view user could never begin counting at all — the app looked healthy, the
+checklist just never went green. Challenge mode was unaffected only because it hardcodes
+`view: 'side'`.
+
+The rep counter, the calibration math and the form model were all already view-agnostic (the
+model was trained on front/side/diagonal clips; `form-engine` even carries a rule that applies
+*except* in side view). Only this gate was view-blind.
+
+**Fix:** the check is now per-view (`VIEW_CHECKS` in `apps/web/lib/workout-session.ts`) —
+`side` keeps the ≥ 0.55 band; `front` passes when the subject is actually facing the camera
+(`≤ 0.5`); `diagonal` accepts any orientation. Labels and hints follow the selected view.
+
+**Guard:** 3 new tests in `apps/web/lib/__tests__/workout-session.test.ts`, including an
+end-to-end front-view count over a deliberately compressed 105–150° band (seen from the front,
+elbow flexion is partially foreshortened — the counter must still calibrate and count inside
+it). Mutation-verified: restoring the old unconditional predicate fails 2 of the 3.
+
 ---
 
 ## 3. Known limitations (documented, not hidden)
@@ -347,7 +369,7 @@ the model report so nobody rediscovers them as a surprise.
 ```
 ai-pushup-coach/
 ├── apps/
-│   ├── web/           Next.js 15 · 7 routes · 9 test files (162 tests)
+│   ├── web/           Next.js 15 · 7 routes · 9 test files (165 tests)
 │   └── api/           FastAPI · 18 modules · 44 tests
 ├── packages/          types · pose · biomechanics · rep-counter · form-engine
 ├── ml/
@@ -368,7 +390,7 @@ npm --prefix apps/web install     # once
 npm run fetch:pose-assets         # once — 28 MB WASM + landmarker, enables offline
 npm run dev                       # http://localhost:3000
 npm run test:py                   # 34 passed
-npm --prefix apps/web run test    # 162 passed
+npm --prefix apps/web run test    # 165 passed
 node scripts/acceptance.mjs       # 16 PASS / 0 FAIL / 0 SKIP
 ```
 

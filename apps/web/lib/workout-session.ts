@@ -3,35 +3,55 @@
 /**
  * lib/workout-session.ts
  *
- * Agent 15 — WORKOUT SESSION ENGINEER
+ * Agent 15 — WORKOUT SESSION ENGINEER & Agent 1 — V2 ORCHESTRATOR
  *
  * The session orchestrator. Ties together:
- *   camera -> pose -> biomechanics -> rep counter -> form assessment -> metrics
+ *   camera -> pose -> view detection -> signal extraction -> biomechanics ->
+ *   rep counter -> form assessment -> coaching engine -> voice coach -> metrics
  *
  * Design: this is a plain class, not a React component. The per-frame pipeline
- * runs at 20fps and must not cause re-renders. It accumulates rep-level
- * results, and pushes a *throttled* metrics snapshot to React (max 4Hz) which
+ * runs at 20-30fps and must not cause re-renders. It accumulates rep-level
+ * results, and pushes a throttled metrics snapshot to React (max 4Hz) which
  * is plenty for a human-readable UI.
  *
- * The NO-FAKE-DATA rule (spec §26) is enforced here: if data is unavailable,
- * metrics carry `null`/NaN and the UI renders "--". Nothing is ever
- * back-filled with a plausible-looking number.
+ * The NO-FAKE-DATA rule (spec §26) is strictly enforced: if data is unavailable,
+ * metrics carry null/NaN and the UI renders "--". Nothing is ever back-filled
+ * with a plausible-looking number.
  */
 
 import type {
   CalibrationCheck,
+  CalibrationPhase,
   CameraView,
   FormLabel,
+  FormStatus,
   FrameFeatures,
   IssueCode,
   PoseFrame,
   RepAssessment,
+  RepMotionSignal,
   SessionMode,
+  TwoStageCalibrationState,
+  UserViewMode,
+  V2CameraView,
   WorkoutMetrics,
   WorkoutRepRecord,
 } from '@ai-pushup-coach/types';
 import { extractFrameFeatures, type ExtractContext } from '@ai-pushup-coach/biomechanics';
-import { RepCounter, calibrateThresholds } from '@ai-pushup-coach/rep-counter';
+import {
+  RepCounter,
+  calibrateThresholds,
+  createSignalExtractor,
+  MotionCalibrator,
+  type IRepSignalExtractor,
+} from '@ai-pushup-coach/rep-counter';
+import { ViewEstimator } from '@ai-pushup-coach/pose';
+import {
+  CoachEngine,
+  VoiceCoach,
+  type CoachAction,
+  type VoiceCoachMode,
+} from '@ai-pushup-coach/coach-engine';
 import {
   assessRep,
   bestValidStreak,
@@ -43,47 +63,84 @@ import type { FormModel } from '@ai-pushup-coach/form-engine';
 
 export type SessionPhase = 'idle' | 'calibrating' | 'active' | 'paused' | 'finished';
 
-/**
- * Calibration must see real movement before it will lock thresholds.
- *
- * `MIN` is the minimum evidence; `MAX` bounds the rolling window so that a
- * subject who is still getting into position does not permanently poison the
- * band with stationary frames (~20 s at 15 fps before the oldest sample ages
- * out, which is longer than anyone takes to start).
- */
 export const CALIBRATION_MIN_SAMPLES = 60;
 export const CALIBRATION_WINDOW_MAX = 300;
-
-/**
- * How often (in frames) the live session re-derives its rep band from the
- * rolling window. 30 frames is ~2 s at 15 fps: often enough to follow fatigue,
- * rare enough that a transient cannot yank the thresholds mid-rep.
- */
 export const ADAPTIVE_REFRESH_FRAMES = 30;
+
+export function toCameraView(v2: V2CameraView): CameraView {
+  if (v2 === 'VIEW_FRONT') return 'front';
+  if (v2 === 'VIEW_SIDE_LEFT' || v2 === 'VIEW_SIDE_RIGHT') return 'side';
+  return 'diagonal';
+}
+
+const VIEW_CHECKS: Record<
+  CameraView,
+  { label: string; hint: string; ok: (dominance: number) => boolean }
+> = {
+  side: {
+    label: 'Side view',
+    hint: 'Turn sideways to the camera for the most accurate analysis.',
+    ok: (v) => v >= 0.55,
+  },
+  diagonal: {
+    label: 'Diagonal view',
+    hint: 'A 45° angle to the camera is ideal; any orientation counts.',
+    ok: () => true,
+  },
+  front: {
+    label: 'Front view',
+    hint: 'Face the camera squarely so both shoulders are equally visible.',
+    ok: (v) => v <= 0.5,
+  },
+};
 
 export interface LiveRepFeedback {
   repIndex: number;
   label: FormLabel;
+  formStatus?: FormStatus;
+  uncertain?: boolean;
   valid: boolean;
   primaryIssue: IssueCode | null;
   components: RepAssessment['components'];
   repScore: number;
+  coachMessage?: string;
+  isCorrection?: boolean;
   /** Bumped on every rep so the UI can animate on change. */
   nonce: number;
+}
+
+export interface DevDiagnosticsSnapshot {
+  detectedView: string;
+  viewConfidence: number;
+  elbowLeft: number | null;
+  elbowRight: number | null;
+  elbowCombined: number | null;
+  elbow2D: number | null;
+  elbow3D: number | null;
+  romTop: number | null;
+  romBottom: number | null;
+  normalizedPhase: number | null;
+  fsmState: string;
+  poseConfidence: number;
+  shoulderDepth: number | null;
+  hipDepth: number | null;
+  recalibrationStatus: string;
 }
 
 export interface SessionSnapshot {
   phase: SessionPhase;
   elapsedSeconds: number;
   metrics: WorkoutMetrics;
-  /** Most recent rep, for the feedback panel. */
   lastRep: LiveRepFeedback | null;
-  /** Live elbow angle, for the debug/diagnostics readout. */
   liveElbowAngle: number | null;
   repState: string;
   cycleProgress: number;
   pausedReason: 'pose-lost' | 'user' | null;
   view: CameraView;
+  userViewMode?: UserViewMode;
+  detectedV2View?: V2CameraView;
+  diagnostics?: DevDiagnosticsSnapshot;
+  lastCoachAction?: CoachAction | null;
 }
 
 export interface SessionCallbacks {
@@ -93,14 +150,13 @@ export interface SessionCallbacks {
 
 export interface SessionConfig {
   mode: SessionMode;
-  view: CameraView;
+  view: CameraView | UserViewMode | 'auto';
   model: FormModel | null;
-  /** Challenge mode: total session length in seconds. */
   durationLimitSeconds?: number;
+  voiceMode?: VoiceCoachMode;
   callbacks: SessionCallbacks;
 }
 
-/** Push UI updates at most this often. 4Hz is smooth for numbers a human reads. */
 const SNAPSHOT_INTERVAL_MS = 250;
 
 export class WorkoutSession {
@@ -109,6 +165,16 @@ export class WorkoutSession {
 
   private readonly counter: RepCounter;
   private readonly extractCtx: ExtractContext = { prevNormalized: null };
+
+  private userViewMode: UserViewMode = 'AUTO';
+  private activeV2View: V2CameraView = 'VIEW_FRONT';
+  private readonly viewEstimator = new ViewEstimator();
+  private signalExtractor: IRepSignalExtractor;
+  private readonly motionCalibrator: MotionCalibrator;
+  private readonly coachEngine = new CoachEngine();
+  private readonly voiceCoach = new VoiceCoach();
+  private lastSignal: RepMotionSignal | null = null;
+  private lastCoachAction: CoachAction | null = null;
 
   private assessments: RepAssessment[] = [];
   private repRecords: WorkoutRepRecord[] = [];
@@ -122,29 +188,47 @@ export class WorkoutSession {
 
   private calibrationSamples: number[] = [];
   private calibrationComplete = false;
-  /** True once the collected samples actually contain a usable range of motion. */
   private calibrationHasRom = false;
 
-  /** Rolling window of post-filter angles, used to keep the band current. */
   private adaptiveSamples: number[] = [];
   private framesSinceRefresh = 0;
 
-  /**
-   * Rolling log of calibration observations. Exists purely to drive the
-   * CAMERA CHECK panel; cleared once the session starts.
-   */
   private calibrationFrameLog: CalibrationObservation[] = [];
 
   private liveElbowAngle: number | null = null;
   private pausedReason: 'pose-lost' | 'user' | null = null;
 
-  /** Consecutive invalid pose frames — used to auto-pause on pose loss. */
   private lostFrames = 0;
   private static readonly LOST_FRAMES_TO_PAUSE = 12; // ~0.6s at 20fps
 
   constructor(cfg: SessionConfig) {
     this.cfg = cfg;
     this.counter = new RepCounter();
+
+    const rawView = String(cfg.view || 'side').toUpperCase();
+    if (rawView === 'AUTO') {
+      this.userViewMode = 'AUTO';
+      this.activeV2View = 'VIEW_FRONT';
+    } else if (rawView === 'FRONT') {
+      this.userViewMode = 'FRONT';
+      this.activeV2View = 'VIEW_FRONT';
+    } else if (rawView === 'SIDE') {
+      this.userViewMode = 'SIDE';
+      this.activeV2View = 'VIEW_SIDE_LEFT';
+    } else if (rawView === 'DIAGONAL') {
+      this.userViewMode = 'DIAGONAL';
+      this.activeV2View = 'VIEW_DIAGONAL_LEFT';
+    } else {
+      this.userViewMode = 'SIDE';
+      this.activeV2View = 'VIEW_SIDE_LEFT';
+    }
+
+    this.signalExtractor = createSignalExtractor(this.activeV2View);
+    this.motionCalibrator = new MotionCalibrator({ view: this.activeV2View });
+
+    if (cfg.voiceMode) {
+      this.voiceCoach.setMode(cfg.voiceMode);
+    }
   }
 
   getPhase(): SessionPhase {
@@ -163,6 +247,31 @@ export class WorkoutSession {
     return this.assessments;
   }
 
+  getVoiceCoach(): VoiceCoach {
+    return this.voiceCoach;
+  }
+
+  getCoachEngine(): CoachEngine {
+    return this.coachEngine;
+  }
+
+  setVoiceMode(mode: VoiceCoachMode): void {
+    this.voiceCoach.setMode(mode);
+  }
+
+  setUserViewMode(mode: UserViewMode): void {
+    this.userViewMode = mode;
+    if (mode === 'FRONT') {
+      this.activeV2View = 'VIEW_FRONT';
+    } else if (mode === 'SIDE') {
+      this.activeV2View = 'VIEW_SIDE_LEFT';
+    } else if (mode === 'DIAGONAL') {
+      this.activeV2View = 'VIEW_DIAGONAL_LEFT';
+    }
+    this.signalExtractor = createSignalExtractor(this.activeV2View);
+    this.motionCalibrator.setView(this.activeV2View);
+  }
+
   getElapsedSeconds(): number {
     if (this.startedAtMs === 0) return 0;
     const now = performance.now();
@@ -170,16 +279,6 @@ export class WorkoutSession {
     return Math.max(0, (now - this.startedAtMs - paused) / 1000);
   }
 
-  // -------------------------------------------------------------------------
-  // Lifecycle
-  // -------------------------------------------------------------------------
-
-  /**
-   * Calibration phase: collect elbow samples so the rep thresholds can be
-   * derived from this person's actual range of motion rather than hardcoded
-   * constants. This is what makes the counter work across body types and
-   * camera views (see the note in rep-counter.ts).
-   */
   beginCalibration(): void {
     this.phase = 'calibrating';
     this.calibrationSamples = [];
@@ -187,57 +286,49 @@ export class WorkoutSession {
     this.calibrationHasRom = false;
     this.adaptiveSamples = [];
     this.framesSinceRefresh = 0;
+    this.viewEstimator.reset();
+    this.motionCalibrator.reset();
   }
 
-  /** Whether enough signal has been seen to calibrate. */
   isCalibrated(): boolean {
     return this.calibrationComplete;
   }
 
-  /**
-   * Live calibration picture for the CAMERA CHECK panel.
-   *
-   * Every check is derived from real landmark evidence. The panel re-polls
-   * this at 5Hz rather than us pushing per-frame updates into React.
-   */
   getCalibrationState(): {
     checks: CalibrationCheck[];
     samples: number;
     liveElbowAngle: number | null;
     ready: boolean;
     poseConfidence: number;
+    calibrationPhase?: CalibrationPhase;
+    calibrationRepsCompleted?: number;
+    calibrationRepsRequired?: number;
+    feedbackPrompt?: string;
   } {
     const frames = this.calibrationFrameLog;
     const recent = frames.slice(-30);
     const validFrames = recent.filter((f) => f.valid);
 
-    // --- Full body visible: ankles must be tracked and inside the frame ---
-    // Push-up form depends on the ankles, so a frame cut at the ankles is
-    // useless even when the shoulders track perfectly (POSE_SCHEMA.md §8).
     const bodyVisible =
       validFrames.length >= 5 &&
       recent.slice(-10).every((f) => f.anklesVisible);
 
-    // --- Pose detected: enough valid frames recently ---
     const poseDetected = validFrames.length >= 10;
 
-    // --- View: is the person oriented usefully? ---
     const viewScore = mean(recent.map((f) => f.sideDominance));
-    const viewOk = viewScore >= 0.55;
+    const effectiveView: CameraView =
+      this.userViewMode === 'AUTO'
+        ? toCameraView(this.activeV2View)
+        : toCameraView(this.activeV2View);
+    const viewCheck = VIEW_CHECKS[effectiveView] ?? VIEW_CHECKS['diagonal'];
+    const viewOk = this.userViewMode === 'AUTO' ? true : viewCheck.ok(viewScore);
 
-    // --- Lighting / confidence: mean landmark visibility ---
     const conf = mean(recent.map((f) => f.sideVisibility));
     const lightingOk = conf >= 0.6;
 
-    // --- Distance: torso must span a reasonable fraction of the frame ---
     const span = mean(recent.map((f) => f.bodySpanRatio));
     const distanceOk = span >= 0.12 && span <= 0.75;
 
-    // --- Range of motion: calibration needs to SEE MOVEMENT, not stillness. ---
-    //
-    // A count-gated check here would pass while the subject stands motionless,
-    // then lock a band the real push-ups never enter. The gate is the
-    // `calibrated` flag from the same function the counter will use.
     const stable = this.calibrationHasRom;
 
     const checks: CalibrationCheck[] = [
@@ -255,9 +346,9 @@ export class WorkoutSession {
       },
       {
         id: 'view',
-        label: 'Side view',
+        label: viewCheck.label,
         passed: viewOk,
-        hint: 'Turn sideways to the camera for the most accurate analysis.',
+        hint: viewCheck.hint,
       },
       {
         id: 'lighting',
@@ -277,9 +368,11 @@ export class WorkoutSession {
         passed: stable,
         hint: stable
           ? `Movement range captured from ${this.calibrationSamples.length} samples.`
-          : 'Do two or three slow practice push-ups so the rep counter can learn your range.',
+          : 'Do two or three practice push-ups so the rep counter can learn your range.',
       },
     ];
+
+    const motionState: TwoStageCalibrationState = this.motionCalibrator.getState();
 
     return {
       checks,
@@ -287,6 +380,10 @@ export class WorkoutSession {
       liveElbowAngle: this.liveElbowAngle,
       ready: checks.every((c) => c.passed),
       poseConfidence: conf,
+      calibrationPhase: motionState.phase,
+      calibrationRepsCompleted: motionState.calibrationRepsCompleted,
+      calibrationRepsRequired: motionState.calibrationRepsRequired,
+      feedbackPrompt: motionState.feedbackPrompt,
     };
   }
 
@@ -295,19 +392,13 @@ export class WorkoutSession {
       const thresholds = calibrateThresholds(this.calibrationSamples);
       this.counter.setThresholds(thresholds);
     }
-    /*
-     * Drop the filter history accumulated while the user was setting up.
-     * Calibration samples were pushed through the counter's filters, so
-     * without this the first frames of the set would be damped toward a stale
-     * "standing still" value. The FSM's tolerant READY state handles the brief
-     * re-fill transient that follows.
-     */
     this.counter.resetFilters();
     this.phase = 'active';
     this.startedAtMs = performance.now();
     this.pausedAccumMs = 0;
     this.pauseStartedAtMs = null;
     this.pausedReason = null;
+    this.voiceCoach.speakEvent('start');
     this.emit(true);
   }
 
@@ -333,18 +424,24 @@ export class WorkoutSession {
 
   finish(): void {
     this.phase = 'finished';
+    this.voiceCoach.speakEvent('workout_complete');
     this.emit(true);
   }
 
   reset(): void {
     this.phase = 'idle';
     this.counter.reset();
+    this.viewEstimator.reset();
+    this.motionCalibrator.reset();
+    this.coachEngine.reset();
+    this.voiceCoach.stop();
     this.assessments = [];
     this.repRecords = [];
     this.startedAtMs = 0;
     this.pausedAccumMs = 0;
     this.pauseStartedAtMs = null;
     this.lastRep = null;
+    this.lastCoachAction = null;
     this.liveElbowAngle = null;
     this.pausedReason = null;
     this.lostFrames = 0;
@@ -356,44 +453,65 @@ export class WorkoutSession {
     this.extractCtx.prevNormalized = null;
   }
 
-  // -------------------------------------------------------------------------
-  // Per-frame pipeline
-  // -------------------------------------------------------------------------
-
-  /**
-   * Feed one pose frame. Called from the pose rAF loop — keep it fast and
-   * allocation-light.
-   */
   onPoseFrame(pose: PoseFrame): void {
-    const features = extractFrameFeatures(pose, this.extractCtx);
-    this.processFrame(features, pose);
+    // 1. View estimation (if in AUTO mode)
+    if (this.userViewMode === 'AUTO' && pose.valid && pose.landmarks?.length >= 25) {
+      const est = this.viewEstimator.estimate(pose.landmarks, pose.timestamp);
+      if (est.view !== this.activeV2View && !est.isLocked) {
+        this.activeV2View = est.view;
+        this.signalExtractor = createSignalExtractor(this.activeV2View);
+        this.motionCalibrator.setView(this.activeV2View);
+      }
+    } else if (this.userViewMode === 'SIDE') {
+      const sideView: V2CameraView = pose.side === 'right' ? 'VIEW_SIDE_RIGHT' : 'VIEW_SIDE_LEFT';
+      if (this.activeV2View !== sideView) {
+        this.activeV2View = sideView;
+        this.signalExtractor = createSignalExtractor(this.activeV2View);
+      }
+    } else if (this.userViewMode === 'DIAGONAL') {
+      const diagView: V2CameraView = pose.side === 'right' ? 'VIEW_DIAGONAL_RIGHT' : 'VIEW_DIAGONAL_LEFT';
+      if (this.activeV2View !== diagView) {
+        this.activeV2View = diagView;
+        this.signalExtractor = createSignalExtractor(this.activeV2View);
+      }
+    }
 
-    // Snapshot must happen even when nothing is counted, so the timer and
-    // "pose lost" states still update in the UI.
+    // 2. Extract bilateral / view-specific RepMotionSignal
+    const signal = pose.valid && pose.landmarks?.length >= 25
+      ? this.signalExtractor.extract(pose.landmarks, pose.timestamp)
+      : this.emptySignal(pose.timestamp);
+    this.lastSignal = signal;
+
+    // 3. Extract biomechanical features for form assessment
+    const features = extractFrameFeatures(pose, this.extractCtx);
+    this.processFrame(features, pose, signal);
+
     this.maybeEmit();
   }
 
-  private processFrame(frame: FrameFeatures, pose?: PoseFrame): void {
+  private emptySignal(t: number): RepMotionSignal {
+    return {
+      timestamp: t,
+      phaseEvidence: Number.NaN,
+      elbowLeft: Number.NaN,
+      elbowRight: Number.NaN,
+      elbowCombined: Number.NaN,
+      shoulderMotion: Number.NaN,
+      hipMotion: Number.NaN,
+      worldDepthMotion: Number.NaN,
+      poseConfidence: 0,
+      view: this.activeV2View,
+    };
+  }
+
+  private processFrame(frame: FrameFeatures, pose: PoseFrame | undefined, signal: RepMotionSignal): void {
     if (this.phase === 'calibrating') {
-      if (frame.valid && Number.isFinite(frame.elbowAngle)) {
-        /*
-         * Calibrate on the FILTERED signal, not the raw angle.
-         *
-         * The rep counter smooths every sample (mask -> causal low-pass ->
-         * median) before its state machine sees it, and smoothing compresses
-         * the extremes. A band derived from raw angles therefore sits outside
-         * the range the FSM ever observes, leaving its thresholds unreachable:
-         * the same clean 8-rep set counted 0 reps from raw samples and 7 from
-         * filtered ones. `observe()` runs a sample through that same chain
-         * without advancing the state machine.
-         */
-        const filtered = this.counter.observe(frame.elbowAngle);
+      const angleToObserve = Number.isFinite(signal.phaseEvidence) ? signal.phaseEvidence : frame.elbowAngle;
+      if (frame.valid && Number.isFinite(angleToObserve)) {
+        const filtered = this.counter.observe(angleToObserve);
         if (Number.isFinite(filtered)) {
           this.calibrationSamples.push(filtered);
 
-          // Bound the buffer so early "standing still" frames cannot pin the
-          // band forever. Once the subject actually moves, the stale samples
-          // age out and the range of motion becomes visible.
           if (this.calibrationSamples.length > CALIBRATION_WINDOW_MAX) {
             this.calibrationSamples.splice(
               0,
@@ -401,32 +519,26 @@ export class WorkoutSession {
             );
           }
 
-          // Completing on sample COUNT alone is the bug this replaced. The UI
-          // tells the user to hold still, so a count-gated calibration happily
-          // locks thresholds from a near-constant elbow angle -- and then the
-          // FSM has a band the real movement never enters. Measured on real
-          // clips: three of six counted ZERO reps. Requiring a genuine range
-          // of motion (the `calibrated` flag) fixes all three.
           if (this.calibrationSamples.length >= CALIBRATION_MIN_SAMPLES) {
-            this.calibrationHasRom = calibrateThresholds(
-              this.calibrationSamples,
-            ).calibrated;
+            const calib = calibrateThresholds(this.calibrationSamples);
+            this.calibrationHasRom = calib.calibrated;
             this.calibrationComplete = this.calibrationHasRom;
+            if (this.calibrationComplete) {
+              this.viewEstimator.lock();
+            }
           }
         }
       }
 
-      // Record an observation for the CAMERA CHECK panel.
       this.calibrationFrameLog.push(buildObservation(frame, pose));
       if (this.calibrationFrameLog.length > 60) this.calibrationFrameLog.shift();
 
-      this.liveElbowAngle = frame.valid ? frame.elbowAngle : null;
+      this.liveElbowAngle = frame.valid && Number.isFinite(angleToObserve) ? angleToObserve : null;
       return;
     }
 
     if (this.phase !== 'active' && this.phase !== 'paused') return;
 
-    // --- pose-loss auto-pause ---
     if (!frame.valid) {
       this.lostFrames++;
       this.liveElbowAngle = null;
@@ -440,37 +552,23 @@ export class WorkoutSession {
     }
 
     if (this.lostFrames > 0 && this.phase === 'paused' && this.pausedReason === 'pose-lost') {
-      // Pose recovered — resume automatically so the user is not stuck.
       this.lostFrames = 0;
       this.resume();
     }
     this.lostFrames = 0;
 
-    this.liveElbowAngle = frame.elbowAngle;
+    const liveAngle = Number.isFinite(signal.phaseEvidence) ? signal.phaseEvidence : frame.elbowAngle;
+    this.liveElbowAngle = liveAngle;
 
     if (this.phase !== 'active') return;
 
-    const rep = this.counter.feed(frame);
+    const rep = this.counter.feed(frame, signal);
     this.refreshThresholdsAdaptively();
     if (rep) {
       this.handleCompletedRep(rep.frames);
     }
   }
 
-  /**
-   * Keep the rep band tracking the user's CURRENT range of motion.
-   *
-   * A band locked from the first few reps goes stale: people start deep and
-   * fade shallow as they tire, and once the thresholds sit outside the range
-   * the signal actually visits the FSM goes silent. Measured on real clips,
-   * locking the band counted 27 of 67 reps and produced ZERO on three of six
-   * clips; re-calibrating from a rolling window counted 55 of 67 and never
-   * zero. See tests/replay_runner.mjs.
-   *
-   * Thresholds are only swapped at a stable point in the cycle (READY/UP).
-   * Refreshing mid-descent could move a threshold past the current angle and
-   * either drop the rep or double-count it.
-   */
   private refreshThresholdsAdaptively(): void {
     const angle = this.counter.getLastAngle();
     if (!Number.isFinite(angle)) return;
@@ -500,16 +598,20 @@ export class WorkoutSession {
       {
         repIndex: index,
         frames,
-        view: this.cfg.view,
+        view: toCameraView(this.activeV2View),
         totalFramesInWindow: frames.length,
       },
       {
         model: this.cfg.model,
-        decisionThreshold: this.cfg.model?.getThreshold() ?? 0.5,
+        decisionThreshold: this.cfg.model?.getThreshold() ?? 0.53,
       },
     );
 
     this.assessments.push(assessment);
+
+    const coachAction = this.coachEngine.onRepCompleted(assessment);
+    this.lastCoachAction = coachAction;
+    this.voiceCoach.speakRep(coachAction, assessment);
 
     const last = frames[frames.length - 1];
     const first = frames[0];
@@ -520,6 +622,8 @@ export class WorkoutSession {
       valid: assessment.valid,
       formProbability: assessment.goodProbability,
       formLabel: assessment.label,
+      formStatus: assessment.formStatus,
+      uncertain: assessment.uncertain,
       depthScore: assessment.components.depth,
       alignmentScore: assessment.components.alignment,
       tempoScore: assessment.components.tempo,
@@ -529,6 +633,8 @@ export class WorkoutSession {
       repDurationSeconds: duration,
       minElbowAngleDeg: minElbow(frames),
       bodyLineDeviationMax: maxAbsBodyLine(frames),
+      coachMessage: coachAction.message ?? undefined,
+      isCorrection: coachAction.isCorrection,
     };
     this.repRecords.push(record);
 
@@ -536,10 +642,14 @@ export class WorkoutSession {
     this.lastRep = {
       repIndex: index,
       label: assessment.label,
+      formStatus: assessment.formStatus,
+      uncertain: assessment.uncertain,
       valid: assessment.valid,
       primaryIssue: assessment.primaryIssue,
       components: assessment.components,
       repScore: assessment.repScore,
+      coachMessage: coachAction.message ?? undefined,
+      isCorrection: coachAction.isCorrection,
       nonce: this.repNonce,
     };
 
@@ -547,14 +657,11 @@ export class WorkoutSession {
     this.emit(true);
   }
 
-  // -------------------------------------------------------------------------
-  // Metrics
-  // -------------------------------------------------------------------------
-
   private computeMetrics(): WorkoutMetrics {
     const total = this.assessments.length;
     const valid = this.assessments.filter((a) => a.valid).length;
     const invalid = total - valid;
+    const uncertain = this.assessments.filter((a) => a.uncertain).length;
 
     const durations = this.repRecords
       .map((r) => r.repDurationSeconds)
@@ -566,6 +673,7 @@ export class WorkoutSession {
       totalReps: total,
       validReps: valid,
       invalidReps: invalid,
+      uncertainReps: uncertain,
       formScore: sessionFormScore(this.assessments),
       bestStreak: bestValidStreak(this.assessments),
       meanRepSeconds: meanRep,
@@ -584,11 +692,30 @@ export class WorkoutSession {
       repState: this.counter.getState(),
       cycleProgress: this.counter.getCycleProgress(),
       pausedReason: this.pausedReason,
-      view: this.cfg.view,
+      view: toCameraView(this.activeV2View),
+      userViewMode: this.userViewMode,
+      detectedV2View: this.activeV2View,
+      lastCoachAction: this.lastCoachAction,
+      diagnostics: {
+        detectedView: this.activeV2View,
+        viewConfidence: this.viewEstimator.getLastEstimate()?.confidence ?? 1.0,
+        elbowLeft: this.lastSignal?.elbowLeft ?? null,
+        elbowRight: this.lastSignal?.elbowRight ?? null,
+        elbowCombined: this.lastSignal?.elbowCombined ?? null,
+        elbow2D: this.lastSignal?.elbowCombined ?? null,
+        elbow3D: this.lastSignal?.worldDepthMotion ?? null,
+        romTop: this.counter.getThresholds().upEnter,
+        romBottom: this.counter.getThresholds().downEnter,
+        normalizedPhase: this.counter.getCycleProgress(),
+        fsmState: this.counter.getState(),
+        poseConfidence: this.lastSignal?.poseConfidence ?? 0,
+        shoulderDepth: this.lastSignal?.shoulderMotion ?? null,
+        hipDepth: this.lastSignal?.hipMotion ?? null,
+        recalibrationStatus: `effTop: ${this.counter.getCalibrationTelemetry().effectiveTop.toFixed(1)}°, effBot: ${this.counter.getCalibrationTelemetry().effectiveBottom.toFixed(1)}°`,
+      },
     };
   }
 
-  /** Throttled emit. */
   private maybeEmit(): void {
     const now = performance.now();
     if (now - this.lastSnapshotAt < SNAPSHOT_INTERVAL_MS) return;
@@ -604,12 +731,10 @@ export class WorkoutSession {
     this.cfg.callbacks.onSnapshot(this.buildSnapshot());
   }
 
-  /** Force a snapshot (e.g. on phase change). */
   flush(): void {
     this.emit(true);
   }
 
-  /** Snapshot accessor for the UI when a session ends. */
   buildSnapshotForUi(): SessionSnapshot {
     return this.buildSnapshot();
   }
@@ -631,21 +756,11 @@ function maxAbsBodyLine(frames: FrameFeatures[]): number {
   return m;
 }
 
-// ---------------------------------------------------------------------------
-// Calibration observations
-// ---------------------------------------------------------------------------
-
 interface CalibrationObservation {
   valid: boolean;
   sideVisibility: number;
-  /** True when both ankles are tracked and not clipped at the frame edge. */
   anklesVisible: boolean;
-  /**
-   * How much one side dominates the other. High value = a clean side view;
-   * low value = the person faces the camera (both sides equally visible).
-   */
   sideDominance: number;
-  /** Body span as a fraction of the frame, used to judge distance. */
   bodySpanRatio: number;
 }
 
@@ -671,8 +786,6 @@ function buildObservation(frame: FrameFeatures, pose?: PoseFrame): CalibrationOb
   const ankleL = lms[L_ANKLE];
   const ankleR = lms[R_ANKLE];
 
-  // Feet must be tracked AND not clipped at the bottom/edges of the frame.
-  // A leg cut off at the ankle makes alignment unmeasurable.
   const anklesVisible =
     !!ankleL &&
     !!ankleR &&
@@ -685,8 +798,6 @@ function buildObservation(frame: FrameFeatures, pose?: PoseFrame): CalibrationOb
     ankleL.x < 0.98 &&
     ankleR.x < 0.98;
 
-  // Side dominance from shoulder-width vs torso-length. In side view the
-  // shoulders overlap so apparent width collapses relative to body length.
   const shMid = {
     x: ((lms[L_SHOULDER]?.x ?? 0) + (lms[R_SHOULDER]?.x ?? 0)) / 2,
     y: ((lms[L_SHOULDER]?.y ?? 0) + (lms[R_SHOULDER]?.y ?? 0)) / 2,
@@ -701,7 +812,6 @@ function buildObservation(frame: FrameFeatures, pose?: PoseFrame): CalibrationOb
     (lms[L_SHOULDER]?.y ?? 0) - (lms[R_SHOULDER]?.y ?? 0),
   );
   const widthRatio = shoulderWidth / torsoLen;
-  // Map widthRatio ~0.5 (side-on) to 1.0 dominance, ~1.2 (face-on) to 0.0.
   const sideDominance = clamp01((1.2 - widthRatio) / 0.7);
 
   const spanX = Math.abs((lms[L_ANKLE]?.x ?? 0) - shMid.x);

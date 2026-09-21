@@ -3,20 +3,18 @@
 /**
  * components/CalibrationPanel.tsx
  *
- * Agent 2 (UX) + Agent 5 (camera) + Agent 6 (pose)
+ * Agent 2 (UX) + Agent 5 (calibration) + Agent 6 (pose)
  *
- * Pre-workout CAMERA CHECK. Mirrors the spec's checklist:
- *   Full body / Pose detected / Side view / Lighting
+ * Two-stage calibration panel:
+ *   Phase A: Camera alignment & framing check
+ *   Phase B: Movement calibration ("Perform 2 normal push-ups so we can learn your movement range")
  *
- * The panel gates the START COUNTING button on real conditions, and each
- * failing check carries a specific instruction rather than a generic
- * "not ready". Counting must not begin until the conditions hold — otherwise
- * the first reps are scored on bad data.
+ * Prevents the standing-lockout failure by requiring genuine range of motion before READY.
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
-import type { CalibrationCheck } from '@ai-pushup-coach/types';
+import type { CalibrationCheck, CalibrationPhase } from '@ai-pushup-coach/types';
 import type { PoseStatus } from '@ai-pushup-coach/pose';
 import { WorkoutSession } from '@/lib/workout-session';
 import { formatInt } from '@/lib/format';
@@ -26,21 +24,9 @@ interface Props {
   session: WorkoutSession | null;
   onReady: (ready: boolean) => void;
   onStartCounting: () => void;
-  /**
-   * Which `POSE_ASSET_SOURCES` entry the pose runtime actually loaded from —
-   * `'local'` means the assets were served from this app, `'cdn'` means the
-   * local copies were missing and the network was used. Reported rather than
-   * assumed: the whole point of serving the assets locally is that the app
-   * runs offline, and a demo operator needs a way to confirm that it did.
-   */
   assetSource?: string | null;
 }
 
-/**
- * Calibration runs as a polling loop rather than per-frame React updates.
- * It samples the session's own state 5x/second, which is enough to light up a
- * checklist and keeps React out of the pose hot path.
- */
 export function CalibrationPanel({
   poseStatus,
   session,
@@ -51,6 +37,10 @@ export function CalibrationPanel({
   const [checks, setChecks] = useState<CalibrationCheck[]>([]);
   const [samples, setSamples] = useState(0);
   const [elbowNow, setElbowNow] = useState<number | null>(null);
+  const [calibPhase, setCalibPhase] = useState<CalibrationPhase>('CAMERA_CHECK');
+  const [repsDone, setRepsDone] = useState(0);
+  const [repsNeeded, setRepsNeeded] = useState(2);
+  const [promptMsg, setPromptMsg] = useState('');
 
   useEffect(() => {
     if (!session) return;
@@ -59,6 +49,10 @@ export function CalibrationPanel({
       setChecks(s.checks);
       setSamples(s.samples);
       setElbowNow(s.liveElbowAngle);
+      if (s.calibrationPhase) setCalibPhase(s.calibrationPhase);
+      if (typeof s.calibrationRepsCompleted === 'number') setRepsDone(s.calibrationRepsCompleted);
+      if (typeof s.calibrationRepsRequired === 'number') setRepsNeeded(s.calibrationRepsRequired);
+      if (s.feedbackPrompt) setPromptMsg(s.feedbackPrompt);
     }, 200);
     return () => window.clearInterval(id);
   }, [session]);
@@ -77,7 +71,22 @@ export function CalibrationPanel({
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">Camera check</h2>
+        <div>
+          <h2 className="text-sm font-semibold text-ink">
+            {ready
+              ? '✓ Calibration complete'
+              : calibPhase === 'MOVEMENT_CALIBRATION'
+                ? 'Phase B: Movement calibration'
+                : 'Phase A: Camera alignment'}
+          </h2>
+          <p className="text-xs text-ink-muted">
+            {ready
+              ? 'Personal range of motion calibrated.'
+              : calibPhase === 'MOVEMENT_CALIBRATION'
+                ? 'Perform 2 normal push-ups so we can learn your movement range.'
+                : 'Position yourself squarely in view of the camera.'}
+          </p>
+        </div>
         <span className="text-xs text-ink-faint">
           {samples > 0 ? `${samples} pose samples` : 'acquiring…'}
           {poseReady && assetSource ? ` · assets: ${assetSource}` : ''}
@@ -122,6 +131,21 @@ export function CalibrationPanel({
         </ul>
       )}
 
+      {/* Movement prompt banner */}
+      {poseReady && !ready && (
+        <div className="mt-3 rounded-card border border-base-border bg-base-raised p-3">
+          <div className="flex items-center justify-between text-xs text-ink">
+            <span className="font-medium">Movement Calibration:</span>
+            <span className="text-ink-muted">
+              {repsDone >= repsNeeded ? 'ROM captured' : `${repsDone} / ${repsNeeded} practice reps`}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-ink-muted">
+            {promptMsg || 'Perform 2 normal push-ups so we can learn your movement range. Do not hold still.'}
+          </p>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           className="btn-primary"
@@ -134,19 +158,19 @@ export function CalibrationPanel({
 
         {!ready && (
           <span id="calib-hint" className="text-xs text-ink-muted">
-            Waiting for all checks to pass
+            Perform practice movement to unlock counting
           </span>
         )}
 
         {ready && (
           <span className="text-xs text-accent">
-            Ready — start your set when you are
+            Ready — start your workout when you are
           </span>
         )}
 
         {elbowNow !== null && Number.isFinite(elbowNow) && (
           <span className="ml-auto font-mono text-[11px] text-ink-faint">
-            elbow {formatInt(elbowNow)}°
+            live elbow {formatInt(elbowNow)}°
           </span>
         )}
       </div>

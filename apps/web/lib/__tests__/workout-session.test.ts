@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Landmark, PoseFrame, RepAssessment } from '@ai-pushup-coach/types';
+import type { CameraView, Landmark, PoseFrame, RepAssessment } from '@ai-pushup-coach/types';
 import { WorkoutSession, type SessionSnapshot } from '@/lib/workout-session';
 
 /**
@@ -69,12 +69,12 @@ function invalidPose(timestamp: number): PoseFrame {
   return { timestamp, landmarks: [], side: 'left', valid: false, sideVisibility: 0 };
 }
 
-function buildSession() {
+function buildSession(view: CameraView = 'side') {
   const snapshots: SessionSnapshot[] = [];
   const reps: RepAssessment[] = [];
   const session = new WorkoutSession({
     mode: 'workout',
-    view: 'side',
+    view,
     model: null,
     callbacks: {
       onSnapshot: (s) => snapshots.push(s),
@@ -436,5 +436,144 @@ describe('WorkoutSession rep counting end to end', () => {
       expect(metrics.formScore as number).toBeGreaterThanOrEqual(0);
       expect(metrics.formScore as number).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+/**
+ * Regression: the orientation camera check used to demand a side view
+ * unconditionally (`sideDominance >= 0.55`, label hardcoded to 'Side view').
+ * The 'Start counting' button is disabled until every check passes, so with
+ * the Front view selected -- which the app explicitly supports and the
+ * dataset was collected in -- the button could never be enabled and front
+ * push-ups could never be counted. These tests pin the view-aware behavior.
+ */
+
+/**
+ * A face-on pose: shoulders wide relative to the torso, the exact opposite of
+ * the side-on set above. `sideDominance` maps this to ~0.
+ */
+function makeFrontLandmarks(): Landmark[] {
+  const lm = (x: number, y: number, visibility = 1): Landmark => ({ x, y, z: 0, visibility });
+  const lms = Array.from({ length: 33 }, () => lm(0.5, 0.5));
+  lms[11] = lm(0.4, 0.5);
+  lms[12] = lm(0.6, 0.5);
+  lms[13] = lm(0.4, 0.6);
+  lms[14] = lm(0.6, 0.6);
+  lms[15] = lm(0.4, 0.6); // replaced by frontPoseAtElbow
+  lms[16] = lm(0.6, 0.6);
+  lms[23] = lm(0.43, 0.65);
+  lms[24] = lm(0.57, 0.65);
+  lms[25] = lm(0.43, 0.75);
+  lms[26] = lm(0.57, 0.75);
+  lms[27] = lm(0.42, 0.85);
+  lms[28] = lm(0.58, 0.85);
+  lms[29] = lm(0.42, 0.9);
+  lms[30] = lm(0.58, 0.9);
+  return lms;
+}
+
+function frontPose(timestamp: number): PoseFrame {
+  return {
+    timestamp,
+    landmarks: makeFrontLandmarks(),
+    side: 'left',
+    valid: true,
+    sideVisibility: 0.9,
+  };
+}
+
+/**
+ * Face-on pose whose left elbow angle is exactly `deg`.
+ *
+ * Mirrors `poseAtElbow` on the face-on landmark set. The band used in the
+ * tests below (105-150deg) is deliberately narrower than the side-view band
+ * (95-175deg): seen from the front, the elbow flexion is partially
+ * foreshortened, so a real front push-up spans a compressed range. The
+ * counter must still calibrate and count inside it.
+ */
+function frontPoseAtElbow(timestamp: number, deg: number): PoseFrame {
+  const lms = makeFrontLandmarks();
+  const th = (deg * Math.PI) / 180;
+  const r = 0.1;
+  lms[15] = { x: 0.4 + r * Math.sin(th), y: 0.6 - r * Math.cos(th), z: 0, visibility: 1 };
+  lms[16] = { x: 0.6 + r * Math.sin(th), y: 0.6 - r * Math.cos(th), z: 0, visibility: 1 };
+  return { timestamp, landmarks: lms, side: 'left', valid: true, sideVisibility: 0.9 };
+}
+
+describe('Camera-check view gating', () => {
+  it('lets a genuine front view pass the orientation check and reach ready', () => {
+    const { session } = buildSession('front');
+    session.beginCalibration();
+
+    // Face-on body doing real movement: calibration still requires ROM.
+    for (let i = 0; i < 70; i++) {
+      const deg = 127.5 + 22.5 * Math.cos((2 * Math.PI * i) / 60);
+      session.onPoseFrame(frontPoseAtElbow(i / 20, deg));
+    }
+
+    const state = session.getCalibrationState();
+    const viewCheck = state.checks.find((c) => c.id === 'view');
+    expect(viewCheck?.label).toBe('Front view');
+    expect(viewCheck?.passed).toBe(true);
+    expect(session.isCalibrated()).toBe(true);
+    expect(state.ready).toBe(true);
+  });
+
+  it('fails the front check when the body is side-on, and the side check when face-on', () => {
+    // Front selected, side-on body: mismatch, must be flagged.
+    const frontSession = buildSession('front').session;
+    frontSession.beginCalibration();
+    for (let i = 0; i < 30; i++) frontSession.onPoseFrame(validPose(i / 20));
+    const frontState = frontSession.getCalibrationState();
+    expect(frontState.checks.find((c) => c.id === 'view')?.label).toBe('Front view');
+    expect(frontState.checks.find((c) => c.id === 'view')?.passed).toBe(false);
+
+    // Side selected, face-on body: the original protection, kept.
+    const sideSession = buildSession('side').session;
+    sideSession.beginCalibration();
+    for (let i = 0; i < 30; i++) sideSession.onPoseFrame(frontPose(i / 20));
+    const sideState = sideSession.getCalibrationState();
+    expect(sideState.checks.find((c) => c.id === 'view')?.label).toBe('Side view');
+    expect(sideState.checks.find((c) => c.id === 'view')?.passed).toBe(false);
+  });
+
+  it('counts front-view push-ups end to end once counting starts', () => {
+    const { session, reps } = buildSession('front');
+    let t = 0;
+
+    // Calibrate over the compressed front-view band (105-150deg).
+    session.beginCalibration();
+    for (let i = 0; i < 70; i++) {
+      const deg = 127.5 + 22.5 * Math.cos((2 * Math.PI * i) / 60);
+      session.onPoseFrame(frontPoseAtElbow(t, deg));
+      t += 1 / 20;
+    }
+    expect(session.isCalibrated()).toBe(true);
+    session.start();
+
+    // Settle at the top so the FSM has an unambiguous starting state.
+    for (let i = 0; i < 10; i++) {
+      session.onPoseFrame(frontPoseAtElbow(t, 148));
+      t += 1 / 20;
+    }
+
+    // Three clean reps inside the compressed band.
+    const framesPerRep = 26;
+    for (let c = 0; c < 3; c++) {
+      for (let i = 0; i < framesPerRep; i++) {
+        const deg = 127.5 + 22.5 * Math.cos((2 * Math.PI * i) / framesPerRep);
+        session.onPoseFrame(frontPoseAtElbow(t, deg));
+        t += 1 / 20;
+      }
+    }
+
+    // Hold at the top to close the final rep (causal filter lag).
+    for (let i = 0; i < 12; i++) {
+      session.onPoseFrame(frontPoseAtElbow(t, 148));
+      t += 1 / 20;
+    }
+
+    expect(reps.length).toBeGreaterThanOrEqual(3);
+    expect(session.getMetrics().totalReps).toBeGreaterThanOrEqual(3);
   });
 });

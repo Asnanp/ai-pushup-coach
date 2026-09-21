@@ -1,0 +1,81 @@
+{
+  "model_type": "gradient_boosting",
+  "n_dev_samples": 837,
+  "n_test_samples": 205,
+  "development_cv": {
+    "random_forest": {
+      "cv_fold_macro_f1_mean": 0.6576,
+      "cv_fold_macro_f1_std": 0.0528,
+      "oof_macro_f1": 0.659,
+      "oof_bad_form_recall": 0.6597,
+      "oof_good_form_recall": 0.6693,
+      "oof_roc_auc": 0.726,
+      "oof_ece": 0.0606,
+      "oof_brier": 0.207,
+      "best_threshold": 0.53,
+      "uncertainty_policy": {
+        "margin_delta": 0.1,
+        "abstention_rate": 0.3548,
+        "coverage": 0.6452,
+        "accuracy_at_coverage": 0.7427
+      }
+    },
+    "logistic_regression": {
+      "cv_fold_macro_f1_mean": 0.6299,
+      "cv_fold_macro_f1_std": 0.0396,
+      "oof_macro_f1": 0.6391,
+      "oof_bad_form_recall": 0.6597,
+      "oof_good_form_recall": 0.6335,
+      "oof_roc_auc": 0.6859,
+      "oof_ece": 0.1202,
+      "oof_brier": 0.2348,
+      "best_threshold": 0.51,
+      "uncertainty_policy": {
+        "margin_delta": 0.1,
+        "abstention_rate": 0.2903,
+        "coverage": 0.7097,
+        "accuracy_at_coverage": 0.6769
+      }
+    },
+    "gradient_boosting": {
+      "cv_fold_macro_f1_mean": 0.6743,
+      "cv_fold_macro_f1_std": 0.0609,
+      "oof_macro_f1": 0.6638,
+      "oof_bad_form_recall": 0.6507,
+      "oof_good_form_recall": 0.6853,
+      "oof_roc_auc": 0.7351,
+      "oof_ece": 0.0744,
+      "oof_brier": 0.2051,
+      "best_threshold": 0.58,
+      "uncertainty_policy": {
+        "margin_delta": 0.1,
+        "abstention_rate": 0.1971,
+        "coverage": 0.8029,
+        "accuracy_at_coverage": 0.712
+      }
+    }
+  },
+  "final_test_metrics": {
+    "accuracy": 0.7463414634146341,
+    "macro_f1": 0.7411616161616161,
+    "roc_auc": 0.7580309339678764,
+    "precision_good": 0.8198198198198198,
+    "recall_good": 0.7398373983739838,
+    "f1_good": 0.7777777777777778,
+    "precision_bad": 0.6595744680851063,
+    "recall_bad": 0.7560975609756098,
+    "f1_bad": 0.7045454545454546,
+    "ece": 0.12157332899155093,
+    "brier": 0.20165282320685282,
+    "confusion_matrix": [
+      [
+        91,
+        32
+      ],
+      [
+        20,
+        62
+      ]
+    ]
+  }
+}

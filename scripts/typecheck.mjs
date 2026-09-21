@@ -45,6 +45,7 @@ const PACKAGE_PROJECTS = [
   'packages/biomechanics',
   'packages/rep-counter',
   'packages/form-engine',
+  'packages/coach-engine',
 ].filter((p) => existsSync(path.join(repoRoot, p, 'tsconfig.json')));
 
 const steps = [

@@ -1,0 +1,708 @@
+{
+  "bad_diagonal_subject_020": {
+    "subject": "020",
+    "view": "diagonal",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        21,
+        55
+      ],
+      [
+        55,
+        109
+      ],
+      [
+        109,
+        127
+      ],
+      [
+        127,
+        172
+      ],
+      [
+        172,
+        198
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_diagonal_subject_021": {
+    "subject": "021",
+    "view": "diagonal",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        18,
+        59
+      ],
+      [
+        59,
+        115
+      ],
+      [
+        115,
+        169
+      ],
+      [
+        169,
+        184
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_008": {
+    "subject": "008",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        36,
+        71
+      ],
+      [
+        71,
+        107
+      ],
+      [
+        107,
+        141
+      ],
+      [
+        141,
+        162
+      ],
+      [
+        162,
+        201
+      ],
+      [
+        201,
+        229
+      ],
+      [
+        229,
+        265
+      ],
+      [
+        265,
+        296
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_009": {
+    "subject": "009",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        19,
+        45
+      ],
+      [
+        45,
+        74
+      ],
+      [
+        74,
+        95
+      ],
+      [
+        95,
+        205
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_014": {
+    "subject": "014",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        53,
+        158
+      ],
+      [
+        158,
+        187
+      ],
+      [
+        187,
+        215
+      ],
+      [
+        215,
+        243
+      ],
+      [
+        243,
+        275
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_015": {
+    "subject": "015",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        24,
+        62
+      ],
+      [
+        62,
+        104
+      ],
+      [
+        104,
+        145
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_017": {
+    "subject": "017",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        36,
+        55
+      ],
+      [
+        55,
+        71
+      ],
+      [
+        91,
+        114
+      ],
+      [
+        114,
+        135
+      ],
+      [
+        135,
+        158
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_018": {
+    "subject": "018",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        33,
+        61
+      ],
+      [
+        61,
+        87
+      ],
+      [
+        87,
+        113
+      ],
+      [
+        113,
+        147
+      ],
+      [
+        147,
+        165
+      ],
+      [
+        165,
+        195
+      ],
+      [
+        195,
+        222
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_front_subject_021": {
+    "subject": "021",
+    "view": "front",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        17,
+        44
+      ],
+      [
+        44,
+        71
+      ],
+      [
+        71,
+        99
+      ],
+      [
+        99,
+        140
+      ],
+      [
+        140,
+        168
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_side_subject_011": {
+    "subject": "011",
+    "view": "side",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        75,
+        122
+      ],
+      [
+        122,
+        154
+      ],
+      [
+        154,
+        175
+      ],
+      [
+        175,
+        225
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_side_subject_012": {
+    "subject": "012",
+    "view": "side",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        24,
+        43
+      ],
+      [
+        43,
+        70
+      ],
+      [
+        70,
+        97
+      ],
+      [
+        97,
+        116
+      ],
+      [
+        116,
+        146
+      ],
+      [
+        146,
+        188
+      ],
+      [
+        188,
+        237
+      ],
+      [
+        237,
+        271
+      ],
+      [
+        271,
+        314
+      ],
+      [
+        314,
+        342
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_side_subject_014": {
+    "subject": "014",
+    "view": "side",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        49,
+        65
+      ],
+      [
+        65,
+        80
+      ],
+      [
+        80,
+        98
+      ],
+      [
+        98,
+        115
+      ],
+      [
+        115,
+        130
+      ],
+      [
+        130,
+        173
+      ],
+      [
+        173,
+        216
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_side_subject_020": {
+    "subject": "020",
+    "view": "side",
+    "quality": "bad",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        49,
+        65
+      ],
+      [
+        65,
+        80
+      ],
+      [
+        80,
+        98
+      ],
+      [
+        98,
+        115
+      ],
+      [
+        115,
+        130
+      ],
+      [
+        130,
+        173
+      ],
+      [
+        173,
+        216
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "bad_side_subject_024": {
+    "subject": "024",
+    "view": "side",
+    "quality": "bad",
+    "is_held_out_test": true,
+    "boundaries": [
+      [
+        41,
+        59
+      ],
+      [
+        59,
+        81
+      ],
+      [
+        81,
+        100
+      ],
+      [
+        100,
+        123
+      ],
+      [
+        123,
+        146
+      ],
+      [
+        146,
+        170
+      ],
+      [
+        170,
+        197
+      ],
+      [
+        197,
+        226
+      ],
+      [
+        226,
+        250
+      ],
+      [
+        250,
+        274
+      ],
+      [
+        274,
+        307
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "good_diagonal_subject_020": {
+    "subject": "020",
+    "view": "diagonal",
+    "quality": "good",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        31,
+        74
+      ],
+      [
+        74,
+        89
+      ],
+      [
+        89,
+        119
+      ],
+      [
+        119,
+        149
+      ],
+      [
+        149,
+        166
+      ],
+      [
+        166,
+        181
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "good_front_subject_001": {
+    "subject": "001",
+    "view": "front",
+    "quality": "good",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        20,
+        37
+      ],
+      [
+        37,
+        55
+      ],
+      [
+        55,
+        72
+      ],
+      [
+        72,
+        90
+      ],
+      [
+        90,
+        108
+      ],
+      [
+        108,
+        125
+      ],
+      [
+        125,
+        143
+      ],
+      [
+        143,
+        161
+      ],
+      [
+        161,
+        177
+      ],
+      [
+        177,
+        195
+      ],
+      [
+        195,
+        212
+      ],
+      [
+        212,
+        229
+      ],
+      [
+        229,
+        248
+      ],
+      [
+        248,
+        263
+      ],
+      [
+        263,
+        287
+      ],
+      [
+        287,
+        325
+      ],
+      [
+        325,
+        359
+      ],
+      [
+        359,
+        409
+      ],
+      [
+        409,
+        427
+      ],
+      [
+        427,
+        454
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "good_front_subject_018": {
+    "subject": "018",
+    "view": "front",
+    "quality": "good",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        38,
+        98
+      ],
+      [
+        98,
+        130
+      ],
+      [
+        130,
+        173
+      ],
+      [
+        173,
+        202
+      ],
+      [
+        202,
+        229
+      ],
+      [
+        229,
+        257
+      ],
+      [
+        257,
+        286
+      ],
+      [
+        286,
+        313
+      ],
+      [
+        313,
+        341
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  },
+  "good_side_subject_007": {
+    "subject": "007",
+    "view": "side",
+    "quality": "good",
+    "is_held_out_test": false,
+    "boundaries": [
+      [
+        8,
+        27
+      ],
+      [
+        27,
+        47
+      ],
+      [
+        47,
+        65
+      ],
+      [
+        65,
+        81
+      ],
+      [
+        81,
+        101
+      ],
+      [
+        101,
+        117
+      ],
+      [
+        132,
+        153
+      ],
+      [
+        153,
+        170
+      ],
+      [
+        170,
+        187
+      ],
+      [
+        187,
+        204
+      ],
+      [
+        204,
+        222
+      ],
+      [
+        222,
+        243
+      ],
+      [
+        243,
+        269
+      ],
+      [
+        269,
+        300
+      ],
+      [
+        300,
+        317
+      ],
+      [
+        317,
+        337
+      ]
+    ],
+    "provenance": "scipy_peak_valley_recovery_agent_6"
+  }
+}
