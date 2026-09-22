@@ -48,6 +48,12 @@ export default function HomePage() {
             >
               <span>30s Challenge</span>
             </Link>
+            <Link
+              href="/flappy"
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-600/40 bg-emerald-500/10 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-emerald-700 hover:bg-emerald-500/20 transition-all"
+            >
+              <span>Flappy Push-Up 🎮</span>
+            </Link>
           </div>
         </div>
       </section>
@@ -218,6 +224,59 @@ export default function HomePage() {
               A 3-2-1 spoken countdown starts automatically once in position.
               No need to reach over and tap your screen.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Gamified Push-Up Arcade: Flappy Push-Up Showcase */}
+      <section className="mt-16 border-t border-base-border pt-12">
+        <div className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-base-raised to-base-raised p-6 sm:p-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[11px] font-semibold text-emerald-700">
+                <span>NEW FEATURE</span>
+                <span>•</span>
+                <span>GAMIFIED CV ARCADE</span>
+              </div>
+              <h2 className="mt-4 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+                Flappy Push-Up 🎮
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+                Control the bird with your body! Push up to climb, drop chest-to-deck to dive, and navigate through obstacles.
+                Features Easy, Medium, and Hard difficulty levels, adaptive autorange calibration, and +5 bonus rep combos.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/flappy"
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-600 bg-emerald-600 px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-emerald-700"
+                >
+                  <span>Launch Arcade Mode</span>
+                  <span>→</span>
+                </Link>
+                <span className="font-mono text-xs text-ink-faint">
+                  3 Difficulty Modes · 100% On-Device Web Audio
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-base-border bg-base p-4 text-center">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">EASY</div>
+                <div className="mt-1 text-lg font-bold text-emerald-600">220px</div>
+                <div className="text-[11px] text-ink-muted">Wide gap, relaxed speed</div>
+              </div>
+              <div className="rounded-xl border border-base-border bg-base p-4 text-center">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">MEDIUM</div>
+                <div className="mt-1 text-lg font-bold text-ink">180px</div>
+                <div className="text-[11px] text-ink-muted">Standard arcade flight</div>
+              </div>
+              <div className="rounded-xl border border-base-border bg-base p-4 text-center">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">HARD</div>
+                <div className="mt-1 text-lg font-bold text-amber-600">145px</div>
+                <div className="text-[11px] text-ink-muted">Narrow gap, high cadence</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

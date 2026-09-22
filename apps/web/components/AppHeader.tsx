@@ -14,6 +14,7 @@ import clsx from 'clsx';
 const NAV = [
   { href: '/workout', label: 'Workout' },
   { href: '/challenge', label: 'Challenge' },
+  { href: '/flappy', label: 'Flappy Push-Up 🎮' },
   { href: '/progress', label: 'Progress' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/tips', label: 'Form Tips' },
