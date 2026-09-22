@@ -8,7 +8,9 @@
 import type { RepMotionSignal } from '@ai-pushup-coach/types';
 import { ELBOW_ANGLE_MAX_PLAUSIBLE, ELBOW_ANGLE_MIN_PLAUSIBLE } from './rep-counter';
 
-const MAX_DEG_PER_SEC = 420;
+// Raised to 600 deg/s to accommodate explosive athletic push-ups without
+// falsely clamping high-velocity reversals as velocity spikes.
+const MAX_DEG_PER_SEC = 600;
 const MAX_PHASE_PER_SEC = 6;
 const MEDIAN_K = 5;
 

@@ -39,13 +39,16 @@ export function evaluatePoseCapability(landmarks: Landmark[]): PoseCapability {
     };
   }
 
-  const leftArm = armOk(landmarks, L_SHOULDER, L_ELBOW, L_WRIST, 0.28);
-  const rightArm = armOk(landmarks, R_SHOULDER, R_ELBOW, R_WRIST, 0.28);
-  const shoulders = vis(landmarks[L_SHOULDER]) >= 0.25 && vis(landmarks[R_SHOULDER]) >= 0.25;
-  const hips = vis(landmarks[L_HIP]) >= 0.25 && vis(landmarks[R_HIP]) >= 0.25;
-  const ankles = vis(landmarks[L_ANKLE]) >= 0.35 && vis(landmarks[R_ANKLE]) >= 0.35;
+  const leftArm = armOk(landmarks, L_SHOULDER, L_ELBOW, L_WRIST, 0.22);
+  const rightArm = armOk(landmarks, R_SHOULDER, R_ELBOW, R_WRIST, 0.22);
+  const shoulders =
+    (vis(landmarks[L_SHOULDER]) >= 0.22 && vis(landmarks[R_SHOULDER]) >= 0.22) ||
+    vis(landmarks[L_SHOULDER]) >= 0.35 ||
+    vis(landmarks[R_SHOULDER]) >= 0.35;
+  const hips = vis(landmarks[L_HIP]) >= 0.22 || vis(landmarks[R_HIP]) >= 0.22;
+  const ankles = vis(landmarks[L_ANKLE]) >= 0.30 || vis(landmarks[R_ANKLE]) >= 0.30;
 
-  const canCountRep = shoulders && (leftArm || rightArm);
+  const canCountRep = (shoulders && (leftArm || rightArm)) || leftArm || rightArm;
   const canGradeDepth = leftArm || rightArm;
   const canGradeAlignment = shoulders && hips;
   const canGradeSymmetry = leftArm && rightArm;

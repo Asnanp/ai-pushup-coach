@@ -77,7 +77,7 @@ export default function LiveCounterLabPage() {
       setDims({ w: video.videoWidth || 1280, h: video.videoHeight || 720 });
       if (!poseRef.current) {
         poseRef.current = new PoseEngine({
-          targetFps: 20,
+          targetFps: 30,
           onFrame: (frame) => {
             poseBridgeRef.current?.(frame);
           },

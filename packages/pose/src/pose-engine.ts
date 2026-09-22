@@ -101,6 +101,9 @@ export class PoseEngine {
   private activeSide: 'left' | 'right' | null = null;
 
   private rafId: number | null = null;
+  private rvfcId: number | null = null;
+  private activeVideo: HTMLVideoElement | null = null;
+  private isDetecting = false;
   private lastDetectTime = 0;
   private readonly minDetectIntervalMs: number;
 
@@ -122,14 +125,17 @@ export class PoseEngine {
   }
 
   constructor(private readonly opts: PoseEngineOptions = {}) {
-    const fps = opts.targetFps ?? 20;
+    const fps = opts.targetFps ?? 30;
     this.minDetectIntervalMs = 1000 / fps;
 
     // 33 landmarks x 3 coordinates (x, y, z) share one filter each.
     // Positional jitter in normalized coords is typically ~0.005 at rest and
-    // spikes to ~0.05 during fast reps, so the filter must adapt.
+    // spikes to ~0.05-0.2 during fast reps.
+    // minCutoff = 1.2 provides jitter-free stability when static in plank, while
+    // beta = 0.8 rapidly opens the filter cutoff during fast/WWE pushups to
+    // completely eliminate the "stuck and go" lag at turnaround depth.
     for (let i = 0; i < 33 * 3; i++) {
-      this.filters.push(new OneEuroFilter({ minCutoff: 1.0, beta: 0.007, dCutoff: 1.0 }));
+      this.filters.push(new OneEuroFilter({ minCutoff: 1.2, beta: 0.8, dCutoff: 1.0 }));
     }
   }
 
@@ -199,17 +205,42 @@ export class PoseEngine {
     return false;
   }
 
-  /** Begin processing a video element. */
+  /** Begin processing a video element. Synchronizes directly with camera frame delivery. */
   start(video: HTMLVideoElement): void {
     if (!this.landmarker || this.status === 'unavailable') return;
-    if (this.rafId !== null) return;
+    if (this.rafId !== null || this.rvfcId !== null) return;
     this.setStatus('running');
+    this.activeVideo = video;
 
-    const loop = () => {
+    const hasRvfc =
+      typeof (video as unknown as { requestVideoFrameCallback?: unknown })
+        .requestVideoFrameCallback === 'function';
+
+    if (hasRvfc) {
+      const vfcLoop = () => {
+        if (this.status !== 'running') return;
+        this.tick(video);
+        if (this.status === 'running' && this.activeVideo) {
+          this.rvfcId = (
+            video as unknown as {
+              requestVideoFrameCallback: (cb: () => void) => number;
+            }
+          ).requestVideoFrameCallback(vfcLoop);
+        }
+      };
+      this.rvfcId = (
+        video as unknown as {
+          requestVideoFrameCallback: (cb: () => void) => number;
+        }
+      ).requestVideoFrameCallback(vfcLoop);
+    } else {
+      const loop = () => {
+        if (this.status !== 'running') return;
+        this.rafId = requestAnimationFrame(loop);
+        this.tick(video);
+      };
       this.rafId = requestAnimationFrame(loop);
-      this.tick(video);
-    };
-    this.rafId = requestAnimationFrame(loop);
+    }
   }
 
   stop(): void {
@@ -217,6 +248,19 @@ export class PoseEngine {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
+    if (this.rvfcId !== null && this.activeVideo) {
+      const cancel = (
+        this.activeVideo as unknown as {
+          cancelVideoFrameCallback?: (id: number) => void;
+        }
+      ).cancelVideoFrameCallback;
+      if (typeof cancel === 'function') {
+        cancel.call(this.activeVideo, this.rvfcId);
+      }
+      this.rvfcId = null;
+    }
+    this.activeVideo = null;
+    this.isDetecting = false;
     if (this.status === 'running') this.setStatus('ready');
   }
 
@@ -233,11 +277,13 @@ export class PoseEngine {
     this.lastGoodFrame = null;
     this.stats.detected = 0;
     this.stats.total = 0;
+    this.isDetecting = false;
     this.filters.forEach((f) => f.reset());
   }
 
   private tick(video: HTMLVideoElement): void {
     if (!this.landmarker) return;
+    if (this.isDetecting) return;
     if (video.readyState < 2) return;
     if (video.videoWidth === 0) return;
 
@@ -245,6 +291,7 @@ export class PoseEngine {
     if (now - this.lastDetectTime < this.minDetectIntervalMs) return;
     this.lastDetectTime = now;
 
+    this.isDetecting = true;
     let result: PoseLandmarkerResult;
     const t0 = performance.now();
     try {
@@ -253,6 +300,8 @@ export class PoseEngine {
       // Transient WebGL/timestamp errors happen; skip the frame rather than
       // tearing down the engine.
       return;
+    } finally {
+      this.isDetecting = false;
     }
     this.stats.lastDetectionMs = performance.now() - t0;
     this.stats.total++;

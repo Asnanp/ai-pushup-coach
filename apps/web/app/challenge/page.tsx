@@ -298,7 +298,7 @@ export default function ChallengePage() {
 
     if (!poseRef.current) {
       poseRef.current = new PoseEngine({
-        targetFps: 20,
+        targetFps: 30,
         onFrame: (frame) => poseBridgeRef.current?.(frame),
       });
     }

@@ -128,7 +128,7 @@ export default function WorkoutPage() {
   const startPose = useCallback(async () => {
     if (!poseRef.current) {
       poseRef.current = new PoseEngine({
-        targetFps: 20,
+        targetFps: 30,
         onStatus: (s) => setPoseStatus(s),
         onFrame: (frame) => {
           poseBridgeRef.current?.(frame);

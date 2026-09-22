@@ -46,7 +46,7 @@ function smoothingFactor(cutoff: number, dt: number): number {
 export interface OneEuroParams {
   /** Minimum cutoff frequency. Lower = smoother when still, but laggier. */
   minCutoff?: number;
-  /** Speed coefficient. Higher = more responsive during fast movement. */
+  /** Speed coefficient. Higher = more responsive during fast movement (0.8 tuned for normalized coordinates). */
   beta?: number;
   /** Cutoff for the derivative estimate. */
   dCutoff?: number;
@@ -64,8 +64,8 @@ export class OneEuroFilter {
   private lastRaw: number | null = null;
 
   constructor(params: OneEuroParams = {}) {
-    this.minCutoff = params.minCutoff ?? 1.0;
-    this.beta = params.beta ?? 0.007;
+    this.minCutoff = params.minCutoff ?? 1.2;
+    this.beta = params.beta ?? 0.8;
     this.dCutoff = params.dCutoff ?? 1.0;
 
     this.xFilter = new LowPass();
