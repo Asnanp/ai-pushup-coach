@@ -19,6 +19,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "devDependencies": {
+    "next": "^15.5.25"
+  },
   "engines": {
     "node": ">=20.9.0"
   }

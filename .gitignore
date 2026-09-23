@@ -38,3 +38,5 @@ apps/web/public/models/pose_landmarker_full.task
 
 # Scratch / probes
 .probe/
+
+.vercel

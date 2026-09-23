@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "name": "ai-pushup-couch",
   "framework": "nextjs",
+  "installCommand": "npm install && npm --prefix apps/web install",
   "buildCommand": "npm run build",
   "outputDirectory": "apps/web/.next",
   "alias": [
