@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm install && npm --prefix apps/web install",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run fetch:pose-assets && npm run build",
   "outputDirectory": "apps/web/.next"
 }
