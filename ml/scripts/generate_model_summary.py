@@ -12,7 +12,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_JSON = ROOT / "ml" / "models" / "pushup_form_model.json"
 META_JSON = ROOT / "ml" / "models" / "pushup_form_model.metadata.json"
-METRICS_JSON = ROOT / "ml" / "reports" / "metrics.json"
 OUT_JSON = ROOT / "ml" / "reports" / "shipped_model_summary.json"
 
 
@@ -26,15 +25,10 @@ def main():
 
     meta = json.loads(META_JSON.read_text(encoding="utf-8"))
     
-    # Read final test metrics from v2_ml_experiments if present
-    v2_exp = ROOT / "ml" / "reports" / "v2_ml_experiments.json"
-    if v2_exp.exists():
-        exp_data = json.loads(v2_exp.read_text(encoding="utf-8"))
-        test_metrics = exp_data.get("final_test_metrics", {})
-        threshold = exp_data.get("development_cv", {}).get(exp_data.get("model_type", "gradient_boosting"), {}).get("best_threshold", meta.get("decision_threshold", 0.58))
-    else:
-        test_metrics = meta.get("metrics", {})
-        threshold = meta.get("decision_threshold", 0.5)
+    # The browser loads this metadata with these weights. An experiment report
+    # can describe a different run, so it must never override shipped metrics.
+    test_metrics = meta.get("metrics", {})
+    threshold = meta.get("decision_threshold", 0.5)
 
     summary = {
         "model_type": meta.get("model_type", ""),

@@ -12,7 +12,7 @@
  * Prevents the standing-lockout failure by requiring genuine range of motion before READY.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import type { CalibrationCheck, CalibrationPhase } from '@ai-pushup-coach/types';
 import type { PoseStatus } from '@ai-pushup-coach/pose';
@@ -28,14 +28,18 @@ interface Props {
   assetSource?: string | null;
 }
 
-export function CalibrationPanel({
+export interface CalibrationPanelHandle {
+  requestStart: () => void;
+}
+
+export const CalibrationPanel = forwardRef<CalibrationPanelHandle, Props>(function CalibrationPanel({
   poseStatus,
   session,
   onReady,
   onStartCounting,
   onCountdownChange,
   assetSource,
-}: Props) {
+}, ref) {
   const [checks, setChecks] = useState<CalibrationCheck[]>([]);
   const [samples, setSamples] = useState(0);
   const [elbowNow, setElbowNow] = useState<number | null>(null);
@@ -45,6 +49,7 @@ export function CalibrationPanel({
   const [promptMsg, setPromptMsg] = useState('');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [autoStartEnabled, setAutoStartEnabled] = useState(true);
+  const [showAllChecks, setShowAllChecks] = useState(false);
 
   const autoStartFiredRef = useRef(false);
   const onStartCountingRef = useRef(onStartCounting);
@@ -69,6 +74,15 @@ export function CalibrationPanel({
     () => checks.length > 0 && checks.every((c) => c.passed),
     [checks],
   );
+  const pendingChecks = checks.filter((check) => !check.passed);
+  const visibleChecks = showAllChecks ? checks : pendingChecks.slice(0, 2);
+  const requestStart = () => {
+    if (countdown !== null) return;
+    if (ready) session?.freezeLearning();
+    setCountdown(3);
+    session?.getVoiceCoach().speak('Starting in three...', true);
+  };
+  useImperativeHandle(ref, () => ({ requestStart }));
 
   useEffect(() => {
     onReady(ready);
@@ -170,13 +184,28 @@ export function CalibrationPanel({
       )}
 
       {poseReady && (
+        <div className="mt-3">
+          <p className="text-xs font-medium text-ink" role="status" aria-live="polite">
+            {ready ? 'Ready to count' : pendingChecks.length > 0 ? `Next: ${pendingChecks[0].label}` : 'Checking movement…'}
+          </p>
+          {samples === 0 && (
+            <p className="mt-1 text-xs text-ink-muted">If the preview says “Start DroidCam” or stays blank, open the camera app or choose another camera below.</p>
+          )}
+          {checks.length > 2 && (
+            <button type="button" className="mt-2 text-xs font-medium text-accent underline underline-offset-2" onClick={() => setShowAllChecks((value) => !value)}>
+              {showAllChecks ? 'Show next steps' : `Show all ${checks.length} checks`}
+            </button>
+          )}
+        </div>
+      )}
+      {poseReady && visibleChecks.length > 0 && (
         <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {checks.map((c) => (
+          {visibleChecks.map((c) => (
             <li key={c.id} className="flex items-start gap-2.5">
               <span
                 className={clsx(
                   'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
-                  c.passed ? 'bg-accent text-base' : 'bg-base-border text-ink-faint',
+                  c.passed ? 'bg-success text-white' : 'bg-base-border text-ink-faint',
                 )}
                 aria-hidden="true"
               >
@@ -217,7 +246,7 @@ export function CalibrationPanel({
 
       {/* Active countdown banner */}
       {countdown !== null && (
-        <div className="mt-3 flex items-center justify-between rounded-card border border-accent bg-accent/10 p-3.5 animate-fade-in">
+        <div className="mt-3 flex items-center justify-between rounded-card border border-accent/40 bg-accent/10 p-3.5 animate-fade-in">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-sm font-bold text-base shadow-sm">
               {countdown > 0 ? countdown : 'GO'}
@@ -271,8 +300,7 @@ export function CalibrationPanel({
           <button
             className="btn-secondary text-xs"
             onClick={() => {
-              setCountdown(3);
-              session?.getVoiceCoach().speak('Starting in three...', true);
+              requestStart();
             }}
             title="Start a 3-second countdown and begin workout without waiting for all checks"
           >
@@ -287,7 +315,7 @@ export function CalibrationPanel({
         )}
 
         {ready && countdown === null && (
-          <span className="text-xs text-accent font-medium">
+          <span className="text-xs text-success font-medium">
             Ready — auto-start countdown active
           </span>
         )}
@@ -314,7 +342,7 @@ export function CalibrationPanel({
       </p>
     </div>
   );
-}
+});
 
 function Spinner() {
   return (

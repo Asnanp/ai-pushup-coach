@@ -180,6 +180,19 @@ describe('WorkoutSession lifecycle', () => {
     expect(session.getCalibrationState().liveElbowAngle).toBeNull();
   });
 
+  it('starts camera alignment fresh after changing camera', () => {
+    const { session } = buildSession();
+    session.beginCalibration();
+    for (let i = 0; i < 20; i++) session.onPoseFrame(validPose(i / 20));
+    expect(session.getCalibrationState().checks.find((c) => c.id === 'pose')?.passed).toBe(true);
+
+    session.beginCalibration();
+    const restarted = session.getCalibrationState();
+    expect(restarted.samples).toBe(0);
+    expect(restarted.liveElbowAngle).toBeNull();
+    expect(restarted.checks.find((c) => c.id === 'pose')?.passed).toBe(false);
+  });
+
   it('start() moves to active and forces a snapshot', () => {
     const { session, snapshots } = buildSession();
     vi.advanceTimersByTime(1000);
@@ -239,15 +252,16 @@ describe('WorkoutSession lifecycle', () => {
     expect(session.getPhase()).toBe('active');
   });
 
-  it('auto-pauses after ~0.6s of lost pose and resumes when the pose returns', () => {
+  it('auto-pauses after ~0.7s of lost pose and resumes when the pose returns', () => {
     const { session } = buildSession();
     activate(session);
     expect(session.getPhase()).toBe('active');
 
-    for (let i = 0; i < 11; i++) session.onPoseFrame(invalidPose(5 + i / 20));
-    expect(session.getPhase()).toBe('active');
+    // Pose-timestamp based pause (not frame-count) so 15fps mobile matches desktop.
+    for (let i = 0; i < 10; i++) session.onPoseFrame(invalidPose(5 + i * 0.05));
+    expect(session.getPhase()).toBe('active'); // 0.45s gap — still holding
 
-    session.onPoseFrame(invalidPose(5.6));
+    session.onPoseFrame(invalidPose(5.75));
     expect(session.getPhase()).toBe('paused');
     expect(session.buildSnapshotForUi().pausedReason).toBe('pose-lost');
 

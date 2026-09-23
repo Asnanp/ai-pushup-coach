@@ -13,12 +13,12 @@
  *                        correction status, ML P(good), and coach messages
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { CameraStage, poseBridgeRef, type CameraStageHandle } from '@/components/CameraStage';
 import { MetricCard, MeterRow } from '@/components/MetricCard';
-import { CameraEngine, makeCaptureError } from '@/lib/camera';
+import { CameraEngine, getPreferredCaptureProfile, makeCaptureError } from '@/lib/camera';
 import { PoseEngine, type PoseStatus } from '@ai-pushup-coach/pose';
 import {
   WorkoutSession,
@@ -38,9 +38,25 @@ import type {
   UserViewMode,
   WorkoutRepRecord,
 } from '@ai-pushup-coach/types';
-import { CalibrationPanel } from '@/components/CalibrationPanel';
+import { CalibrationPanel, type CalibrationPanelHandle } from '@/components/CalibrationPanel';
 import { LiveMotionGraph, type LiveMotionGraphHandle } from '@/components/LiveMotionGraph';
 import { formatClock, formatInt, formatPercent } from '@/lib/format';
+
+
+function subscribeLg(cb: () => void) {
+  const mq = window.matchMedia('(min-width: 1024px)');
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
+function getLgSnapshot() {
+  return window.matchMedia('(min-width: 1024px)').matches;
+}
+function getLgServerSnapshot() {
+  return false;
+}
+function useIsLg() {
+  return useSyncExternalStore(subscribeLg, getLgSnapshot, getLgServerSnapshot);
+}
 
 export default function WorkoutPage() {
   const cameraRef = useRef<CameraEngine | null>(null);
@@ -48,6 +64,7 @@ export default function WorkoutPage() {
   const sessionRef = useRef<WorkoutSession | null>(null);
   const stageRef = useRef<CameraStageHandle | null>(null);
   const motionGraphRef = useRef<LiveMotionGraphHandle | null>(null);
+  const calibrationPanelRef = useRef<CalibrationPanelHandle | null>(null);
 
   const [phase, setPhase] = useState<SessionPhase>('idle');
   const [error, setError] = useState<CaptureError | null>(null);
@@ -62,6 +79,9 @@ export default function WorkoutPage() {
   const [voiceMode, setVoiceMode] = useState<VoiceCoachMode>('MOTIVATOR');
   const [showDebug, setShowDebug] = useState(false);
   const [calibrationReady, setCalibrationReady] = useState(false);
+  const [cameraDevices, setCameraDevices] = useState<Awaited<ReturnType<typeof CameraEngine.listDevices>>>([]);
+  const [cameraDeviceId, setCameraDeviceId] = useState('');
+  const [cameraBusy, setCameraBusy] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [finishedRecords, setFinishedRecords] = useState<WorkoutRepRecord[]>([]);
 
@@ -104,7 +124,7 @@ export default function WorkoutPage() {
     };
   }, []);
 
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (deviceId?: string) => {
     const camera = cameraRef.current;
     if (!camera) return false;
 
@@ -112,12 +132,20 @@ export default function WorkoutPage() {
     if (!video) return false;
 
     try {
-      await camera.start(video, { width: 1280, height: 720, fps: 30 });
+      const profile = getPreferredCaptureProfile();
+      await camera.start(video, {
+        deviceId: deviceId || undefined,
+        width: profile.width,
+        height: profile.height,
+        fps: profile.fps,
+      });
       setVideoDims({
-        w: video.videoWidth || 1280,
-        h: video.videoHeight || 720,
+        w: video.videoWidth || profile.width,
+        h: video.videoHeight || profile.height,
       });
       setError(null);
+      setCameraDevices(await CameraEngine.listDevices());
+      setCameraDeviceId(camera.getStream()?.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId ?? '');
       return true;
     } catch (err) {
       failWith(err as CaptureError);
@@ -127,8 +155,9 @@ export default function WorkoutPage() {
 
   const startPose = useCallback(async () => {
     if (!poseRef.current) {
+      const profile = getPreferredCaptureProfile();
       poseRef.current = new PoseEngine({
-        targetFps: 30,
+        targetFps: profile.poseFps,
         onStatus: (s) => setPoseStatus(s),
         onFrame: (frame) => {
           poseBridgeRef.current?.(frame);
@@ -147,6 +176,7 @@ export default function WorkoutPage() {
     const video = stageRef.current?.getVideo();
     if (!video) return false;
 
+    engine.resetSession();
     engine.start(video);
     return true;
   }, [failWith]);
@@ -155,7 +185,7 @@ export default function WorkoutPage() {
   // Session control
   // -------------------------------------------------------------------------
   const handleStart = useCallback(async () => {
-    const cameraOk = await startCamera();
+    const cameraOk = await startCamera(cameraDeviceId);
     if (!cameraOk) return;
 
     const poseOk = await startPose();
@@ -178,7 +208,24 @@ export default function WorkoutPage() {
     sessionRef.current = s;
     s.beginCalibration();
     setPhase('calibrating');
-  }, [model, startCamera, startPose, userViewMode, voiceMode]);
+  }, [cameraDeviceId, model, startCamera, startPose, userViewMode, voiceMode]);
+
+  const handleCameraChange = useCallback(async (deviceId: string) => {
+    if (phase !== 'calibrating' || cameraBusy) return;
+    setCameraBusy(true);
+    poseRef.current?.stop();
+    const cameraOk = await startCamera(deviceId);
+    if (cameraOk) {
+      sessionRef.current?.beginCalibration();
+      setCalibrationReady(false);
+      await startPose();
+    } else {
+      // A failed device choice should restore the previous live feed.
+      const restored = await startCamera(cameraDeviceId);
+      if (restored) await startPose();
+    }
+    setCameraBusy(false);
+  }, [cameraBusy, cameraDeviceId, phase, startCamera, startPose]);
 
   const handleBeginCounting = useCallback(() => {
     const s = sessionRef.current;
@@ -228,6 +275,12 @@ export default function WorkoutPage() {
   const components = lastAssessment?.components ?? null;
   const feedback = lastAssessment ? buildFeedback(lastAssessment) : null;
   const coachAction = snapshot?.lastCoachAction ?? null;
+  const isLg = useIsLg();
+  const isLivePhase = phase === 'active' || phase === 'calibrating' || phase === 'paused';
+  const coachHeadline = coachAction?.message
+    ?? (lastAssessment ? buildFeedback(lastAssessment)?.headline : null)
+    ?? null;
+
 
   const overlayMessage = error
     ? null
@@ -254,45 +307,78 @@ export default function WorkoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-5">
+    <div className={clsx(
+      'mx-auto max-w-[1400px] overflow-x-hidden px-3 py-3 sm:px-5 sm:py-5 lg:pb-5',
+      phase === 'calibrating'
+        ? 'pb-[calc(10rem+env(safe-area-inset-bottom))]'
+        : 'pb-[calc(5.5rem+env(safe-area-inset-bottom))]',
+    )}>
+      <header className="mb-5 px-1 sm:mb-6">
+        <p className="metric-label">Real movement. Real feedback.</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-[-0.045em] text-ink sm:text-4xl">Workout</h1>
+        <p className="mt-2 max-w-2xl text-sm text-ink-muted sm:text-[16px]">Keep your whole body in view. Your reps and form feedback appear as you move.</p>
+      </header>
       {error && <ErrorBanner error={error} onRetry={() => window.location.reload()} />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         {/* ---------------- LEFT: camera ---------------- */}
         <section aria-label="Live camera" className="relative">
-          <CameraStage
-            ref={stageRef}
-            onPoseFrame={(frame) => {
-              sessionRef.current?.onPoseFrame(frame);
-            }}
-            isLive={phase === 'active' || phase === 'calibrating'}
-            overlayMessage={overlayMessage}
-            videoWidth={videoDims.w}
-            videoHeight={videoDims.h}
-          />
-
-          {/* Development Debug Diagnostics Overlay (Spec §29) */}
-          {showDebug && snapshot?.diagnostics && (
-            <DevDiagnosticsOverlay
-              diagnostics={snapshot.diagnostics}
-              onExport={() => {
-                const json = sessionRef.current?.getV3Engine().traces.exportJSON();
-                if (!json) return;
-                const blob = new Blob([json], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `pushup-live-trace-${Date.now()}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
+          <div className="relative">
+            <CameraStage
+              ref={stageRef}
+              className="w-full"
+              onPoseFrame={(frame) => {
+                sessionRef.current?.onPoseFrame(frame);
               }}
+              isLive={phase === 'active' || phase === 'calibrating'}
+              showPoster={phase === 'idle'}
+              overlayMessage={overlayMessage}
+              videoWidth={videoDims.w}
+              videoHeight={videoDims.h}
             />
+          </div>
+
+          {/* Keep measured essentials directly beneath the camera on phones. */}
+          {isLivePhase && (
+            <div className="mt-3 grid grid-cols-3 gap-2 lg:hidden" aria-label="Live workout metrics">
+              <div className="card p-3"><div className="metric-label">Reps</div><div className="tabular mt-1 text-2xl font-bold text-ink">{formatInt(metrics?.totalReps ?? null)}</div></div>
+              <div className="card p-3">
+                <div className="metric-label">Form</div>
+                <div className="tabular mt-1 text-2xl font-bold text-ink">
+                  {formatInt(metrics?.formScore ?? null)}
+                  {metrics?.scoreStatus === 'provisional' && (
+                    <span className="ml-1 text-[10px] font-normal text-warn">prov.</span>
+                  )}
+                </div>
+              </div>
+              <div className="card p-3"><div className="metric-label">Time</div><div className="tabular mt-1 text-lg font-semibold text-ink">{formatClock(snapshot?.elapsedSeconds)}</div></div>
+            </div>
+          )}
+
+          {/* Development Debug Diagnostics Overlay — desktop only */}
+          {showDebug && snapshot?.diagnostics && (
+            <div className="hidden lg:block">
+              <DevDiagnosticsOverlay
+                diagnostics={snapshot.diagnostics}
+                onExport={() => {
+                  const json = sessionRef.current?.getV3Engine().traces.exportJSON();
+                  if (!json) return;
+                  const blob = new Blob([json], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `pushup-live-trace-${Date.now()}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              />
+            </div>
           )}
 
           {phase === 'idle' && !error && (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
               <button
-                className="btn-primary px-6 py-2.5 text-xs font-semibold uppercase tracking-wider"
+                className="btn-primary min-h-11 w-full md:w-auto px-6 py-2.5 text-xs font-semibold uppercase tracking-wider"
                 onClick={handleStart}
               >
                 <PlayIcon />
@@ -300,15 +386,17 @@ export default function WorkoutPage() {
               </button>
               <ViewSelector value={userViewMode} onChange={handleViewChange} />
               <VoiceSelector value={voiceMode} onChange={handleVoiceChange} />
-              <button
-                className={clsx(
-                  'btn-secondary text-xs font-mono uppercase tracking-wider',
-                  showDebug && 'bg-base-hover border-ink text-ink',
-                )}
-                onClick={() => setShowDebug((d) => !d)}
-              >
-                {showDebug ? 'Hide Debug' : 'Debug'}
-              </button>
+              {showDebug && (
+                <button
+                  className={clsx(
+                    'btn-secondary min-h-11 text-xs font-mono uppercase tracking-wider',
+                    'bg-base-hover border-ink text-ink',
+                  )}
+                  onClick={() => setShowDebug((d) => !d)}
+                >
+                  Hide Debug
+                </button>
+              )}
               {modelAvailable === false && (
                 <span className="chip-neutral font-mono text-[11px]">
                   Rule-based scoring (model not loaded)
@@ -339,7 +427,20 @@ export default function WorkoutPage() {
 
           {phase === 'calibrating' && (
             <div className="mt-4">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+              {cameraDevices.length > 1 && (
+                <label className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-card border border-base-border bg-base-raised px-3 py-2 text-xs text-ink-muted">
+                  <span className="shrink-0 font-medium text-ink">Camera</span>
+                  <select className="min-w-0 flex-1 bg-transparent text-right text-ink" aria-label="Choose camera" value={cameraDeviceId} disabled={cameraBusy} onChange={(event) => void handleCameraChange(event.target.value)}>
+                    <option value="">Default camera</option>
+                    {cameraDevices.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
+                  </select>
+                </label>
+              )}
+                <ViewSelector value={userViewMode} onChange={handleViewChange} />
+              </div>
               <CalibrationPanel
+                ref={calibrationPanelRef}
                 poseStatus={poseStatus}
                 session={sessionRef.current}
                 onReady={setCalibrationReady}
@@ -351,7 +452,7 @@ export default function WorkoutPage() {
           )}
 
           {phase === 'active' && (
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-ink-muted">
+            <div className="mt-3 hidden flex-wrap items-center gap-4 text-xs text-ink-muted lg:flex">
               <div>
                 <span className="text-ink-faint">Elbow: </span>
                 <span className="font-semibold text-ink">
@@ -372,25 +473,31 @@ export default function WorkoutPage() {
                   {snapshot?.detectedV2View?.replace('VIEW_', '') ?? userViewMode}
                 </span>
               </div>
-              <div className="flex-1" />
-              <button
-                className="text-xs text-ink-faint hover:text-ink cursor-pointer"
-                onClick={() => setShowDebug((d) => !d)}
-              >
-                {showDebug ? 'Hide debug' : 'Debug'}
-              </button>
+              {showDebug && (
+                <>
+                  <div className="flex-1" />
+                  <button
+                    className="text-xs text-ink-faint hover:text-ink cursor-pointer"
+                    onClick={() => setShowDebug((d) => !d)}
+                  >
+                    Hide debug
+                  </button>
+                </>
+              )}
             </div>
           )}
 
-          {/* Real-time Push-Up Motion Oscilloscope Graph */}
-          {(phase === 'active' || phase === 'calibrating') && (
+          {/* Real-time motion graph — unmount below lg */}
+          {isLg && (phase === 'active' || phase === 'calibrating') && (
             <LiveMotionGraph ref={motionGraphRef} height={130} className="mt-3" />
           )}
         </section>
 
-        {/* ---------------- RIGHT: metrics ---------------- */}
-        <section aria-label="Workout metrics" className="flex flex-col gap-4">
-          {/* Timer + end */}
+        {/* ---------------- RIGHT: metrics (lg only) ---------------- */}
+        <section
+          aria-label="Workout metrics"
+          className="hidden flex-col gap-4 lg:flex"
+        >
           <div className="card flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <TimerIcon active={phase === 'active'} />
@@ -418,8 +525,7 @@ export default function WorkoutPage() {
             </button>
           </div>
 
-          {/* Rep counters (Total / Valid / Invalid / Uncertain) */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             <MetricCard
               label="Reps"
               value={metrics ? metrics.totalReps : null}
@@ -438,11 +544,13 @@ export default function WorkoutPage() {
               tone="bad"
               emphasis
             />
-            <MetricCard
-              label="Uncertain"
-              value={metrics ? (metrics.uncertainReps ?? 0) : null}
-              emphasis
-            />
+            <div className="hidden sm:block">
+              <MetricCard
+                label="Uncertain"
+                value={metrics ? (metrics.uncertainReps ?? 0) : null}
+                emphasis
+              />
+            </div>
           </div>
 
           <p className="sr-only" role="status" aria-live="polite">
@@ -451,13 +559,12 @@ export default function WorkoutPage() {
               : 'No reps recorded yet.'}
           </p>
 
-          {/* Form score */}
           <div className="card p-4">
             <div className="flex items-start justify-between">
               <div>
                 <div className="metric-label">Form Score</div>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="tabular text-metric font-bold text-ink">
+                  <span className="tabular text-metricSm md:text-metric font-bold text-ink">
                     {formatInt(metrics?.formScore)}
                   </span>
                   <span className="text-sm text-ink-faint">/100</span>
@@ -473,7 +580,6 @@ export default function WorkoutPage() {
             </div>
           </div>
 
-          {/* Form analysis meters */}
           <div className="card p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-ink">Form analysis</h2>
@@ -500,11 +606,51 @@ export default function WorkoutPage() {
         </section>
       </div>
 
-      {/* ---------------- BOTTOM: feedback ---------------- */}
-      <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      {/* ---------------- BOTTOM: feedback (lg only) ---------------- */}
+      <section className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-5">
         <FeedbackPanel feedback={feedback} coachAction={coachAction} />
         <TipPanel issue={lastAssessment?.primaryIssue ?? null} />
       </section>
+
+      {/* The calibration action remains reachable while the camera is in view. */}
+      {isLivePhase && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-base-border bg-base/95 px-3 pt-2 backdrop-blur lg:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto max-w-[1400px]">
+            {coachHeadline && (
+              <p className="mb-1 truncate text-xs text-ink-muted" title={coachHeadline}>
+                {coachHeadline}
+              </p>
+            )}
+            {phase === 'calibrating' && (
+              <button type="button" className="btn-primary mb-2 min-h-11 w-full justify-center" disabled={countdown !== null || cameraBusy} onClick={() => calibrationPanelRef.current?.requestStart()}>
+                {countdown !== null ? `Starting in ${countdown}s…` : calibrationReady ? 'Start counting' : 'Start counting in 3s'}
+              </button>
+            )}
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 shrink-0">
+                <div className="text-[10px] uppercase tracking-wider text-ink-muted">Reps</div>
+                <div className="tabular text-xl font-bold leading-none text-ink sm:text-2xl">
+                  {metrics ? metrics.totalReps : 0}
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 text-center">
+                <div className="tabular text-sm font-medium text-ink-muted">
+                  {formatClock(snapshot?.elapsedSeconds)}
+                </div>
+              </div>
+              <button
+                className="btn-danger min-h-11 shrink-0 px-4"
+                onClick={handleEnd}
+                disabled={phase !== 'active' && phase !== 'calibrating' && phase !== 'paused'}
+              >
+                <StopIcon />
+                <span className="sm:hidden">End</span>
+                <span className="hidden sm:inline">End Workout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -588,7 +734,7 @@ function FeedbackPanel({
 
   const iconBg =
     tone === 'positive'
-      ? 'bg-accent text-base'
+      ? 'bg-success text-white'
       : tone === 'corrective'
         ? 'bg-danger text-white'
         : tone === 'warning'
@@ -610,7 +756,7 @@ function FeedbackPanel({
         <div className="flex items-center gap-2">
           <span className="metric-label">Feedback</span>
           {isCorrection && (
-            <span className="rounded-chip bg-accent/20 px-2 py-0.5 text-[11px] font-bold text-accent">
+            <span className="rounded-chip bg-success/20 px-2 py-0.5 text-[11px] font-bold text-success">
               CORRECTED
             </span>
           )}
@@ -654,7 +800,7 @@ function ScoreBadge({ score }: { score: number | null }) {
       className={clsx(
         'rounded-chip px-2.5 py-0.5 text-xs font-medium border',
         good
-          ? 'border-accent/40 bg-accent/10 text-accent'
+          ? 'border-success/40 bg-success/10 text-success'
           : mid
             ? 'border-warn/40 bg-warn/10 text-warn'
             : 'border-danger/40 bg-danger/10 text-danger',
@@ -679,31 +825,46 @@ function ViewSelector({
     { v: 'DIAGONAL', label: 'Diagonal' },
   ];
   return (
-    <div
-      className="flex items-center rounded-control border border-base-border bg-base-sunken p-0.5 text-xs"
-      role="radiogroup"
-      aria-label="Camera angle"
-    >
-      {options.map((o) => (
-        <button
-          key={o.v}
-          role="radio"
-          aria-checked={value === o.v}
-          onClick={() => onChange(o.v)}
-          className={clsx(
-            'rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
-            value === o.v
-              ? 'bg-base-raised text-ink font-semibold'
-              : 'text-ink-muted hover:text-ink',
-          )}
+    <>
+      <label className="block w-full md:hidden">
+        <span className="sr-only">Camera angle</span>
+        <select
+          className="min-h-11 w-full rounded-control border border-base-border bg-base-sunken px-3 text-sm text-ink"
+          value={value}
+          onChange={(e) => onChange(e.target.value as UserViewMode)}
         >
-          {o.label}
-        </button>
-      ))}
-    </div>
+          {options.map((o) => (
+            <option key={o.v} value={o.v}>
+              View: {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div
+        className="hidden items-center rounded-control border border-base-border bg-base-sunken p-0.5 text-xs md:flex"
+        role="radiogroup"
+        aria-label="Camera angle"
+      >
+        {options.map((o) => (
+          <button
+            key={o.v}
+            role="radio"
+            aria-checked={value === o.v}
+            onClick={() => onChange(o.v)}
+            className={clsx(
+              'rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+              value === o.v
+                ? 'bg-base-raised text-ink font-semibold'
+                : 'text-ink-muted hover:text-ink',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
-
 function VoiceSelector({
   value,
   onChange,
@@ -712,37 +873,52 @@ function VoiceSelector({
   onChange: (v: VoiceCoachMode) => void;
 }) {
   const options: { v: VoiceCoachMode; label: string }[] = [
-    { v: 'MOTIVATOR', label: '⚡ Motivator' },
+    { v: 'MOTIVATOR', label: 'Motivator' },
     { v: 'NORMAL', label: 'Coach' },
     { v: 'ACTIVE', label: 'Active' },
     { v: 'OFF', label: 'Mute' },
   ];
   return (
-    <div
-      className="flex items-center rounded-control border border-base-border bg-base-sunken p-0.5 text-xs"
-      role="radiogroup"
-      aria-label="Voice coach mode"
-    >
-      {options.map((o) => (
-        <button
-          key={o.v}
-          role="radio"
-          aria-checked={value === o.v}
-          onClick={() => onChange(o.v)}
-          className={clsx(
-            'rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
-            value === o.v
-              ? 'bg-base-raised text-ink font-semibold'
-              : 'text-ink-muted hover:text-ink',
-          )}
+    <>
+      <label className="block w-full md:hidden">
+        <span className="sr-only">Voice coach mode</span>
+        <select
+          className="min-h-11 w-full rounded-control border border-base-border bg-base-sunken px-3 text-sm text-ink"
+          value={value}
+          onChange={(e) => onChange(e.target.value as VoiceCoachMode)}
         >
-          {o.label}
-        </button>
-      ))}
-    </div>
+          {options.map((o) => (
+            <option key={o.v} value={o.v}>
+              Voice: {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div
+        className="hidden items-center rounded-control border border-base-border bg-base-sunken p-0.5 text-xs md:flex"
+        role="radiogroup"
+        aria-label="Voice coach mode"
+      >
+        {options.map((o) => (
+          <button
+            key={o.v}
+            role="radio"
+            aria-checked={value === o.v}
+            onClick={() => onChange(o.v)}
+            className={clsx(
+              'rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+              value === o.v
+                ? 'bg-base-raised text-ink font-semibold'
+                : 'text-ink-muted hover:text-ink',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
-
 function ErrorBanner({ error, onRetry }: { error: CaptureError; onRetry: () => void }) {
   return (
     <div
@@ -779,14 +955,14 @@ function SessionResult({
   const [selectedRep, setSelectedRep] = useState<WorkoutRepRecord | null>(null);
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-8 sm:py-12">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-5 sm:py-12">
       <div className="text-center">
-        <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-600">
-          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-success/30 bg-success/10 text-success sm:h-12 sm:w-12">
+          <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:mt-4 sm:text-4xl">
           Workout Complete
         </h1>
         <p className="mt-1 text-sm font-medium text-ink-muted">
@@ -794,27 +970,21 @@ function SessionResult({
         </p>
       </div>
 
-      {/* Overview Cards */}
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="card p-4 text-center">
-          <div className="metric-label">Total Reps</div>
-          <div className="mt-1 text-3xl font-bold text-ink">{metrics?.totalReps ?? 0}</div>
-        </div>
-        <div className="card p-4 text-center">
-          <div className="metric-label text-accent">Valid Reps</div>
-          <div className="mt-1 text-3xl font-bold text-accent">{metrics?.validReps ?? 0}</div>
-        </div>
-        <div className="card p-4 text-center">
-          <div className="metric-label text-danger">Invalid Reps</div>
-          <div className="mt-1 text-3xl font-bold text-danger">{metrics?.invalidReps ?? 0}</div>
-        </div>
-        <div className="card p-4 text-center">
-          <div className="metric-label">Form Score</div>
-          <div className="mt-1 text-3xl font-bold text-ink">
-            {metrics?.formScore !== null && Number.isFinite(metrics?.formScore) ? `${formatInt(metrics.formScore)}` : '--'}
-            <span className="text-xs text-ink-faint font-normal"> /100</span>
-          </div>
-        </div>
+      {/* Overview Cards - denser on mobile */}
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:mt-8 sm:gap-3 sm:grid-cols-4">
+        <MetricCard size="sm" label="Total Reps" value={metrics?.totalReps ?? 0} />
+        <MetricCard size="sm" label="Valid Reps" value={metrics?.validReps ?? 0} tone="good" />
+        <MetricCard size="sm" label="Invalid Reps" value={metrics?.invalidReps ?? 0} tone={(metrics?.invalidReps ?? 0) > 0 ? 'bad' : 'neutral'} />
+        <MetricCard
+          size="sm"
+          label="Form Score"
+          value={
+            metrics?.formScore !== null && Number.isFinite(metrics?.formScore)
+              ? `${formatInt(metrics.formScore)}`
+              : '--'
+          }
+          caption="/100"
+        />
       </div>
 
       {/* Visual Rep Performance Graph */}
@@ -825,7 +995,7 @@ function SessionResult({
       />
 
       {/* Rep-by-Rep Breakdown (Spec §30) */}
-      <div className="mt-8 card p-5">
+      <div className="mt-6 card p-3 sm:mt-8 sm:p-5">
         <h2 className="text-base font-semibold text-ink">Rep-by-Rep Form Breakdown</h2>
         <p className="text-xs text-ink-muted mt-1">
           Click any repetition to inspect measured geometric components and ML probability.
@@ -843,7 +1013,7 @@ function SessionResult({
                   : 'INVALID';
               const statusBg =
                 status === 'VALID'
-                  ? 'bg-accent/15 text-accent'
+                  ? 'bg-success/15 text-success'
                   : status === 'INVALID'
                     ? 'bg-danger/15 text-danger'
                     : 'bg-warn/15 text-warn';
@@ -860,7 +1030,7 @@ function SessionResult({
                       {status}
                     </span>
                     {r.isCorrection && (
-                      <span className="rounded bg-accent/20 px-2 py-0.5 text-[11px] font-bold text-accent">
+                      <span className="rounded bg-success/20 px-2 py-0.5 text-[11px] font-bold text-success">
                         ✓ CORRECTED
                       </span>
                     )}
@@ -938,7 +1108,7 @@ function SessionResult({
               </div>
               {selectedRep.coachMessage && (
                 <div className="mt-3 rounded border border-base-border bg-base-raised p-2 text-xs">
-                  <span className="font-semibold text-accent">Coach:</span> "{selectedRep.coachMessage}"
+                  <span className="font-semibold text-ink">Coach:</span> "{selectedRep.coachMessage}"
                 </div>
               )}
             </div>
@@ -951,21 +1121,21 @@ function SessionResult({
         </div>
       )}
 
-      {/* Navigation actions */}
-      <div className="mt-10 flex flex-wrap justify-center gap-3">
+      {/* Navigation actions - full-width stacked CTAs on xs */}
+      <div className="mt-8 flex w-full flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:justify-center">
         <button
-          className="btn-primary px-6 py-2.5 text-xs font-semibold uppercase tracking-wider"
+          className="btn-primary inline-flex min-h-11 w-full items-center justify-center px-6 py-2.5 text-xs font-semibold uppercase tracking-wider sm:w-auto"
           onClick={onRestart}
         >
           Start Another Set
         </button>
-        <Link href="/progress" className="btn-secondary px-5 py-2.5 text-xs font-medium uppercase tracking-wider">
+        <Link href="/progress" className="btn-secondary inline-flex min-h-11 w-full items-center justify-center px-5 py-2.5 text-xs font-medium uppercase tracking-wider sm:w-auto">
           View Progress &amp; Trends
         </Link>
-        <Link href="/challenge" className="btn-secondary px-5 py-2.5 text-xs font-medium uppercase tracking-wider">
+        <Link href="/challenge" className="btn-secondary inline-flex min-h-11 w-full items-center justify-center px-5 py-2.5 text-xs font-medium uppercase tracking-wider sm:w-auto">
           30s Challenge
         </Link>
-        <Link href="/leaderboard" className="btn-ghost py-3 px-4 font-semibold text-ink-muted hover:text-ink">
+        <Link href="/leaderboard" className="btn-ghost inline-flex min-h-11 w-full items-center justify-center py-3 px-4 font-semibold text-ink-muted hover:text-ink sm:w-auto">
           Leaderboard
         </Link>
       </div>
@@ -1095,7 +1265,7 @@ function TimerIcon({ active }: { active: boolean }) {
     <span
       className={clsx(
         'flex h-10 w-10 items-center justify-center rounded-full border',
-        active ? 'border-accent-deep text-accent' : 'border-base-border text-ink-faint',
+        active ? 'border-accent text-accent' : 'border-base-border text-ink-faint',
       )}
       aria-hidden="true"
     >

@@ -135,6 +135,14 @@ describe('angleDeg3D', () => {
 });
 
 describe('extractRichMotion', () => {
+  it('uses the visible elbow when the far arm is occluded on a phone', () => {
+    const image = skeleton({ elbowDeg: 155, leftVis: 0.9, rightVis: 0.24 });
+    image[16] = lm(0.68, 0.3, 0, 0.24);
+    const signal = extractRichMotion(image, 0, 'VIEW_FRONT');
+    expect(Math.abs(signal.elbowLeft - signal.elbowRight)).toBeGreaterThan(70);
+    expect(signal.elbowCombined).toBeCloseTo(signal.elbowLeft, 5);
+  });
+
   it('fills 3D elbow channels from world landmarks', () => {
     const image = skeleton({ elbowDeg: 160 });
     const world = skeleton({ elbowDeg: 90 });

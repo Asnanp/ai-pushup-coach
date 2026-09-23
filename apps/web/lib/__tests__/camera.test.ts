@@ -203,12 +203,16 @@ describe('CameraEngine.start', () => {
   });
 
   it('throws INIT_FAILED when the video element refuses to play', async () => {
-    const { stream } = fakeStream();
+    const { stream, track } = fakeStream();
     setNavigator({ mediaDevices: mediaDevices(async () => stream) });
     const engine = new CameraEngine();
+    const video = fakeVideo({ play: async () => Promise.reject(new Error('blocked')) });
     await expect(
-      engine.start(fakeVideo({ play: async () => Promise.reject(new Error('blocked')) })),
+      engine.start(video),
     ).rejects.toMatchObject({ code: 'INIT_FAILED' });
+    expect(track.stop).toHaveBeenCalledTimes(1);
+    expect(engine.getStream()).toBeNull();
+    expect(video.srcObject).toBeNull();
   });
 });
 

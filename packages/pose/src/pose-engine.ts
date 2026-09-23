@@ -65,6 +65,8 @@ export const POSE_MODEL_URL = POSE_ASSET_SOURCES[1].modelUrl;
 
 /** Below this the frame's geometry is untrustworthy (see docs/POSE_SCHEMA.md). */
 export const MIN_VISIBILITY = 0.5;
+/** Side lock can engage a bit earlier; counting still uses pose capability. */
+export const SIDE_LOCK_MIN_VISIBILITY = 0.38;
 export const SIDE_SWITCH_MARGIN = 0.15;
 
 export type PoseStatus =
@@ -105,7 +107,8 @@ export class PoseEngine {
   private activeVideo: HTMLVideoElement | null = null;
   private isDetecting = false;
   private lastDetectTime = 0;
-  private readonly minDetectIntervalMs: number;
+  private minDetectIntervalMs: number;
+  private overloadStreak = 0;
 
   private readonly stats: DetectionStats = { detected: 0, total: 0, lastDetectionMs: 0 };
 
@@ -137,6 +140,13 @@ export class PoseEngine {
     for (let i = 0; i < 33 * 3; i++) {
       this.filters.push(new OneEuroFilter({ minCutoff: 1.2, beta: 0.8, dCutoff: 1.0 }));
     }
+  }
+
+  /** Live throttle: drop pose FPS when inference overruns (common on phones). */
+  setTargetFps(fps: number): void {
+    const clamped = Math.max(8, Math.min(30, fps));
+    this.minDetectIntervalMs = 1000 / clamped;
+    this.overloadStreak = 0;
   }
 
   getStatus(): PoseStatus {
@@ -306,6 +316,17 @@ export class PoseEngine {
     this.stats.lastDetectionMs = performance.now() - t0;
     this.stats.total++;
 
+    // If inference is eating the budget, back off toward ~8–12 fps instead of queuing.
+    if (this.stats.lastDetectionMs > this.minDetectIntervalMs * 0.9) {
+      this.overloadStreak += 1;
+      if (this.overloadStreak >= 3) {
+        this.minDetectIntervalMs = Math.min(125, this.minDetectIntervalMs * 1.2);
+        this.overloadStreak = 0;
+      }
+    } else if (this.overloadStreak > 0) {
+      this.overloadStreak -= 1;
+    }
+
     const timestamp = now / 1000;
     const frame = this.toPoseFrame(result, timestamp);
 
@@ -368,7 +389,7 @@ export class PoseEngine {
     );
 
     // Lock the side for the session once we have a confident read.
-    if (this.activeSide === null && chosen.score >= MIN_VISIBILITY) {
+    if (this.activeSide === null && chosen.score >= SIDE_LOCK_MIN_VISIBILITY) {
       this.activeSide = chosen.side;
     }
 

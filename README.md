@@ -10,7 +10,7 @@ Point a webcam at yourself, do push-ups, and the app:
 2. Normalises the landmarks against your own torso, so distance from the camera and body size stop mattering.
 3. Counts reps with a finite-state machine driven by elbow angle — `UP -> DOWN -> UP` with hysteresis.
 4. Collects the frames belonging to each completed rep into one feature window.
-5. Scores that window with a gradient-boosted classifier exported to plain JSON, producing `P(good form)`.
+5. Scores that window with a Random Forest classifier exported to plain JSON, producing `P(good form)`.
 6. Turns the probability plus the measured geometry into a label, an issue code, a set of component scores (depth / alignment / tempo / consistency / range of motion) and a session score.
 7. Saves the session to `localStorage`, and mirrors it to Supabase only if Supabase is configured.
 
@@ -19,7 +19,7 @@ Point a webcam at yourself, do push-ups, and the app:
 **It is** two separate, independently testable systems bolted together:
 
 - a **deterministic geometric rep counter** — state machine + thresholds, fully explainable, no model involved;
-- a **trained classifier** — a real `GradientBoostingClassifier` fitted on 917 labelled reps from 24 subjects, exported to dependency-free JSON and executed in the browser.
+- a **trained classifier** — a real `RandomForestClassifier` fitted on 917 labelled reps from 24 subjects, exported to dependency-free JSON and executed in the browser.
 
 **It is not** an LLM wrapper. There is no language model anywhere in the inference path. No prompt, no API call, no cloud inference, no "AI" as a synonym for "HTTP request to a vendor". The word "AI" in the name refers to the trained classifier in step 5 above.
 
@@ -58,7 +58,7 @@ There are **no screenshots committed to this repository** — `apps/web/public/`
         |                                  aggregate -> 34-value feature vector
         |                                            |
         |                                            v
-        |                                  GBM classifier (in-browser, JSON weights)
+        |                                  Random Forest classifier (in-browser, JSON weights)
         |                                            -> P(good form)
         |                                            |
         +--------------------+-----------------------+
@@ -108,6 +108,19 @@ ai-pushup-coach/
 └── tests/                   Python test suite plus the two Node parity runners.
 ```
 
+## DEMO (60 seconds for judges)
+
+1. From the repo root: `npm run fetch:pose-assets` (once; skip if assets already present).
+2. Start the app: `npm run dev` ? open **http://localhost:3000**.
+3. Click **Start Workout** ? allow the camera.
+4. Stand 2?3 m back (side view preferred) ? get into push-up position ? wait for calibration / countdown.
+5. Do several push-ups. Watch:
+   - **Reps / Valid / Invalid** update live (invalid reps are recorded, not discarded).
+   - **Form score** and depth / alignment / tempo meters after each completed rep.
+6. Optional booth modes: **/challenge** (30s max valid reps) ? **/about** (honest model card).
+
+No backend required. Camera frames stay on-device. Optional Supabase only mirrors numeric session summaries (see `.env.example`).
+
 ## Quick start
 
 Everything below is run from the repository root:
@@ -154,7 +167,7 @@ Then open **http://localhost:3000**.
 "C:\Users\USER\anaconda3\envs\pushup\Scripts\python.exe" -m pytest tests -q
 ```
 
-Expected: `34 passed, 0 skipped`.
+Expected: `44 passed, 0 skipped` (or current suite size).
 
 Use an **existing** interpreter that already has `numpy`, `scipy`, `scikit-learn`, `mediapipe` and `pytest` installed — the path above is the one verified on this checkout. Do not create a new Python environment for this project.
 
@@ -233,47 +246,33 @@ The model is exported to **dependency-free JSON** — the browser ships no ML li
 
 ## Model card summary
 
-Values below are read from `ml/models/pushup_form_model.metadata.json` and `ml/reports/metrics.json`.
+Values below are read from `ml/models/pushup_form_model.metadata.json` (shipped browser artifact).
 
 | Field | Value |
 |---|---|
-| Estimator | `GradientBoostingClassifier` (scikit-learn) |
+| Estimator | `RandomForestClassifier` (scikit-learn) |
 | Task | Binary classification of one **completed rep**, not one frame |
 | Features consumed | 34 of the 37-feature contract |
 | Decision threshold | 0.58 |
 | Positive class | `0` = `P(good form)` |
-| Trained at | 2026-09-20T18:32:00Z |
-| Exported at | 2026-09-20T18:33:51Z |
+| Trained / exported | 2026-09-21T05:35:25Z |
 
-**Features.** The 34 consumed features cover joint angles (elbow, shoulder, hip, knee), body-line deviation, torso slope, range of motion, depth ratio, angular and vertical velocities, rep/descent/ascent durations, pause at bottom, and jitter. The three capture-quality features in the contract — `mean_visibility`, `min_visibility`, `tracking_gap_ratio` — are **excluded** from the model; the metadata records seven capture-quality diagnostics in total, which are kept at runtime for UI purposes but never fed to the classifier. The recorded reason: including them let the classifier read capture conditions as a proxy for subject identity, and excluding them raised test macro-F1 from 0.587 to 0.670.
-
-**Training data.** 917 reps from 24 subjects, split by subject using a sha256-hash-banded strategy: 569 train / 143 validation / 205 test reps (16 / 4 / 4 subjects). No subject appears in more than one split.
-
-**Model selection.** Four candidates were compared on the person-independent validation split. Gradient boosting was selected on validation macro-F1:
-
-| Candidate | Val accuracy | Val macro-F1 | Threshold | Val ROC-AUC |
-|---|---|---|---|---|
-| Logistic regression | 0.776 | 0.764 | 0.56 | 0.810 |
-| Random forest | 0.790 | 0.780 | 0.52 | 0.860 |
-| **Gradient boosting (selected)** | **0.832** | **0.819** | **0.58** | **0.862** |
-| XGBoost | 0.804 | 0.793 | 0.57 | 0.855 |
-
-**Held-out test metrics** (205 reps, subjects never seen in training):
+**Held-out test metrics** (205 reps, 4 subjects never seen in training):
 
 | Metric | Value |
 |---|---|
-| Accuracy | 0.688 |
-| Macro F1 | 0.672 |
-| ROC-AUC | 0.702 |
-| Precision (good) | 0.732 |
-| Recall (good) | 0.756 |
-| F1 (good) | 0.744 |
-| Precision (bad) | 0.615 |
-| Recall (bad) | 0.585 |
-| F1 (bad) | 0.600 |
-| Confusion matrix | `[[93, 30], [34, 48]]` |
+| Accuracy | 0.746 |
+| Macro F1 | 0.741 |
+| ROC-AUC | 0.758 |
+| Precision (good) | 0.820 |
+| Recall (good) | 0.740 |
+| F1 (good) | 0.778 |
+| Precision (bad) | 0.660 |
+| Recall (bad) | 0.756 |
+| F1 (bad) | 0.705 |
+| Confusion matrix | `[[91, 32], [20, 62]]` |
 
-Accuracy by camera view on test: front 0.631 (n=84), side 0.659 (n=44), diagonal 0.766 (n=77). Accuracy by test subject ranged from 0.444 to 0.861 — the spread is real and is why the limitations below are stated plainly.
+Training data: 917 reps from 24 subjects, subject-independent split (569 / 143 / 205). Capture-quality features are excluded from the classifier. Full limitations and per-view / per-subject breakdown live on **/about**.
 
 ## Testing
 
@@ -287,14 +286,14 @@ The suite lives in `tests/` and is run with pytest.
 | `parity_runner.mjs` | Node runner that executes the TypeScript feature extractor over a pose-frame fixture and prints the aggregated feature vector as JSON. Invoked by `test_feature_parity.py`. |
 | `model_parity_runner.mjs` | Node runner that scores the parity fixture with the **real** TypeScript model runtime and prints `P(good)` values as JSON. Invoked by `test_model_parity.py`. It deliberately imports the shipped runtime rather than reimplementing the tree walk, because a reimplementation would pass the test while the shipped code stayed broken. |
 
-**Current result: 34 passed, 0 failed, 0 skipped.**
+**Current result: 44 passed, 0 failed, 0 skipped** (acceptance run).
 
 Both parity tests assert agreement to within `1e-6`. The measured worst-case deviation between the TypeScript runtime and sklearn across the 200 fixture cases is **1.11e-16**, i.e. floating-point noise. This matters because an early version of the runtime returned `P(bad)` where the caller expected `P(good)` — the exact complement, which would have told every user their good reps were bad while looking entirely plausible. `test_model_parity.py` includes a test that fails if that inversion ever returns.
 
 The web app has its own Vitest suite alongside the pytest suite:
 
 ```bash
-npm --prefix apps/web run test     # 162 passed across 9 files
+npm --prefix apps/web run test     # 182 passed across 10 files
 ```
 
 `npm test` chains `test:py` and `test:js`, so both run from the repo root.

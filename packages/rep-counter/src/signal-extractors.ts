@@ -79,9 +79,15 @@ function combineElbows(
   leftVis: number,
   rightVis: number,
 ): number {
-  const leftOk = Number.isFinite(left) && leftVis >= 0.25;
-  const rightOk = Number.isFinite(right) && rightVis >= 0.25;
+  // 0.18: mobile front cams often report 0.18–0.28 on the working arm.
+  const leftOk = Number.isFinite(left) && leftVis >= 0.18;
+  const rightOk = Number.isFinite(right) && rightVis >= 0.18;
   if (leftOk && rightOk) {
+    // Phone cameras often lose the far elbow behind the torso. A low-confidence
+    // arm that disagrees sharply must not pull the counting angle halfway down.
+    if (Math.abs(left - right) > 70 && Math.min(leftVis, rightVis) < 0.35 && Math.max(leftVis, rightVis) > 0.5) {
+      return leftVis > rightVis ? left : right;
+    }
     const total = leftVis + rightVis;
     return (left * leftVis + right * rightVis) / total;
   }

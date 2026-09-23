@@ -132,7 +132,17 @@ export function extractFrameFeatures(
   const lms = pose.landmarks;
   const side = pose.side;
 
-  if (!pose.valid || lms.length < 33) {
+  // Need a full landmark set. Pose.valid may flicker false on mobile while
+  // MediaPipe still returns 33 points — starving form assessment of frames
+  // produced "missing form" on counted reps. Prefer canCountRep / landmarks.
+  if (lms.length < 33) {
+    return invalidFrame(side, pose.timestamp);
+  }
+  // When valid flickers false on mobile but MediaPipe still tracks arms,
+  // capability.canCountRep keeps form frames flowing. Bare sideVisibility
+  // alone must NOT force-extract an explicitly invalid pose.
+  const canExtract = pose.valid || Boolean(pose.capability?.canCountRep);
+  if (!canExtract) {
     return invalidFrame(side, pose.timestamp);
   }
 

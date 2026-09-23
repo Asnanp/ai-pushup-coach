@@ -86,14 +86,13 @@ def export_forest(clf) -> dict:
 
 
 def export_logistic(clf, scaler) -> dict:
-    coef = clf.coef_
-    intercept = clf.intercept_
-    export = {
-        "kind": "logistic",
-        "coef": coef.ravel().tolist(),
-        "intercept": intercept.ravel().tolist(),
-        "classes": [int(c) for c in clf.classes_],
-    }
+    # sklearn binary logistic stores only the score for classes_[1]. The
+    # browser indexes coefficient rows by class, so provide both rows rather
+    # than accidentally reporting P(bad) as P(good).
+    if len(clf.classes_) != 2 or clf.coef_.shape[0] != 1:
+        raise ValueError("Browser logistic export requires binary classes")
+    weights = clf.coef_[0].astype(float)
+    bias = float(clf.intercept_[0])
     if scaler is not None:
         # Fold scaling into the coefficients so the browser needs no scaler.
         #   z = w . ((x - mu)/sigma) + b
@@ -101,11 +100,14 @@ def export_logistic(clf, scaler) -> dict:
         mu = np.asarray(scaler.mean_, dtype=float)
         sigma = np.asarray(scaler.scale_, dtype=float)
         sigma = np.where(sigma == 0, 1.0, sigma)
-        w = coef.ravel() / sigma
-        b = float(intercept.ravel()[0] - np.sum(coef.ravel() * mu / sigma))
-        export["coef"] = w.tolist()
-        export["intercept"] = [b]
-    return export
+        weights = weights / sigma
+        bias -= float(np.sum(clf.coef_[0] * mu / sigma))
+    return {
+        "kind": "logistic",
+        "coef": np.concatenate([-weights, weights]).tolist(),
+        "intercept": [-bias, bias],
+        "classes": [int(c) for c in clf.classes_],
+    }
 
 
 def export_gbm(clf) -> dict:
@@ -149,8 +151,10 @@ def export_gbm(clf) -> dict:
     }
 
 
-def score_logistic(exp: dict, x: np.ndarray) -> float:
-    z = exp["intercept"][0] + float(np.dot(np.asarray(exp["coef"]), x))
+def score_logistic(exp: dict, x: np.ndarray, positive_class: int = 0) -> float:
+    row = exp["classes"].index(int(positive_class))
+    start = row * len(x)
+    z = exp["intercept"][row] + float(np.dot(np.asarray(exp["coef"])[start:start + len(x)], x))
     return 1.0 / (1.0 + np.exp(-z))
 
 
@@ -199,7 +203,7 @@ def score_gbm(exp: dict, x: np.ndarray, positive_class: int = 0) -> float:
 
 def score_export(exp: dict, x: np.ndarray, positive_class: str) -> float:
     if exp["kind"] == "logistic":
-        return score_logistic(exp, x)
+        return score_logistic(exp, x, positive_class)
     if exp["kind"] == "forest":
         # Class indices are exported as ints (matching `positive_class`), but
         # resolve defensively: map through str() so a legacy string export or

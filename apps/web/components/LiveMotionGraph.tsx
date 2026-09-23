@@ -78,9 +78,11 @@ export const LiveMotionGraph = forwardRef<LiveMotionGraphHandle, Props>(
       return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Continuous rendering loop for ultra-smooth 60fps waveform
+    // Continuous rendering loop — killed immediately on unmount (FE unmounts below lg).
     useEffect(() => {
+      let alive = true;
       const render = () => {
+        if (!alive) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -166,7 +168,7 @@ export const LiveMotionGraph = forwardRef<LiveMotionGraphHandle, Props>(
           ctx.textAlign = 'center';
           ctx.fillText('Motion waveform waiting for active reps...', W / 2, H / 2);
           ctx.restore();
-          animIdRef.current = requestAnimationFrame(render);
+          if (alive) animIdRef.current = requestAnimationFrame(render);
           return;
         }
 
@@ -269,12 +271,16 @@ export const LiveMotionGraph = forwardRef<LiveMotionGraphHandle, Props>(
         ctx.stroke();
         ctx.restore();
 
-        animIdRef.current = requestAnimationFrame(render);
+        if (alive) animIdRef.current = requestAnimationFrame(render);
       };
 
       animIdRef.current = requestAnimationFrame(render);
       return () => {
-        if (animIdRef.current !== null) cancelAnimationFrame(animIdRef.current);
+        alive = false;
+        if (animIdRef.current !== null) {
+          cancelAnimationFrame(animIdRef.current);
+          animIdRef.current = null;
+        }
       };
     }, [showLabels]);
 

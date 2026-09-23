@@ -196,7 +196,12 @@ export function assessRep(
   const agg = aggregateRepWindow(input.frames, input.totalFramesInWindow);
 
   if (!agg) {
-    // No usable frames — an honest "we don't know" rather than a guess.
+    // Mobile / dropout: a counted cycle may lack FrameFeatures while still
+    // carrying honest live excursion evidence. Grade from that rather than
+    // emitting a blank "unknown" that looks like form validation failed.
+    if (input.live && Number.isFinite(input.live.phaseExcursion)) {
+      return liveOnlyAssessment(input.repIndex, input.view, input.live);
+    }
     return unknownAssessment(input.repIndex, 'no usable pose frames in this rep');
   }
 
@@ -337,6 +342,43 @@ export function assessRep(
     scoreSource,
     borderline,
     missingFeatureCount,
+  };
+}
+
+function liveOnlyAssessment(
+  repIndex: number,
+  view: 'side' | 'diagonal' | 'front',
+  live: LiveCycleEvidence,
+): RepAssessment {
+  const depth = depthScoreFromPhase(live.phaseExcursion);
+  const rom = romScoreFromPhase(live.phaseExcursion);
+  const components: ScoreComponents = {
+    depth,
+    alignment: Number.NaN,
+    tempo: Number.NaN,
+    consistency: Number.NaN,
+    rom,
+  };
+  const geo = geometryScore(components);
+  const geometrySaysGood = Number.isFinite(geo) && geo >= 55;
+  const issues = detectIssues({}, view, live);
+  return {
+    repIndex,
+    label: geometrySaysGood ? 'good' : 'bad',
+    formStatus: 'UNCERTAIN',
+    uncertain: true,
+    confidence: 0.45,
+    goodProbability: Number.NaN,
+    valid: geometrySaysGood,
+    repScore: geo,
+    geometryScore: geo,
+    modelScore: null,
+    components,
+    primaryIssue: issues.length ? issues[0].code : null,
+    secondaryIssues: issues.slice(1, 4).map((i) => i.code),
+    scoreSource: 'geometry-only',
+    borderline: true,
+    missingFeatureCount: 0,
   };
 }
 

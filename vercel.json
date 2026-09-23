@@ -3,8 +3,5 @@
   "framework": "nextjs",
   "installCommand": "npm install && npm --prefix apps/web install",
   "buildCommand": "npm run build",
-  "outputDirectory": "apps/web/.next",
-  "alias": [
-    "ai-pushup-couch.vercel.app"
-  ]
+  "outputDirectory": "apps/web/.next"
 }

@@ -61,15 +61,15 @@ import { issueLabel } from '@ai-pushup-coach/form-engine';
 // ---------------------------------------------------------------------------
 
 /** base-border */
-const GRID_STROKE = '#1C2733';
+const GRID_STROKE = '#E4E4E7';
 /** ink-muted — axis ticks and non-semantic series */
-const AXIS_TICK = '#8A99A8';
-/** accent — cyber emerald */
-const ACCENT = '#00F090';
+const AXIS_TICK = '#71717A';
+/** success — form / valid series */
+const ACCENT = '#16A34A';
 /** danger — invalid reps */
-const DANGER = '#FF3B5C';
+const DANGER = '#DC2626';
 /** cyan — secondary telemetry */
-const CYAN = '#00E5FF';
+const CYAN = '#0891B2';
 
 const AXIS_PROPS = {
   stroke: 'transparent',
@@ -134,10 +134,10 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto max-w-[1400px] overflow-x-hidden px-4 py-8 sm:px-5">
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-display font-semibold tracking-tight text-ink">Progress</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-display">Progress</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Your workout history and trends.
             {isRemoteEnabled() ? (
@@ -147,7 +147,7 @@ export default function ProgressPage() {
             )}
           </p>
         </div>
-        <Link href="/workout" className="btn-primary">
+        <Link href="/workout" className="btn-primary inline-flex min-h-11 w-full items-center justify-center sm:w-auto">
           New workout
         </Link>
       </header>
@@ -157,7 +157,7 @@ export default function ProgressPage() {
       ) : (
         <>
           {/* Summary tiles */}
-          <section aria-label="Totals" className="mt-7 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <section aria-label="Totals" className="mt-7 grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-6">
             <Tile label="Sessions" value={formatInt(stats.sessions)} />
             <Tile label="Total reps" value={formatInt(stats.totalReps)} />
             <Tile label="Valid reps" value={formatInt(stats.validReps)} tone="good" />
@@ -358,7 +358,7 @@ export default function ProgressPage() {
                       </Td>
                       <Td mono>{formatClock(s.durationSeconds)}</Td>
                       <Td mono>{formatInt(s.totalReps)}</Td>
-                      <Td mono className="text-accent">
+                      <Td mono className="text-success">
                         {formatInt(s.validReps)}
                       </Td>
                       <Td mono className={s.invalidReps > 0 ? 'text-danger' : ''}>
@@ -511,18 +511,18 @@ function Tile({
 }) {
   const borderTone =
     tone === 'good'
-      ? 'border-emerald-500/30 bg-emerald-500/[0.04]'
+      ? 'border-success/30 bg-success/[0.04]'
       : tone === 'bad'
         ? 'border-danger/30 bg-danger/[0.04]'
         : 'border-base-border bg-base-raised';
 
   return (
-    <div className={clsx('card p-4 transition-all duration-200', borderTone)}>
+    <div className={clsx('card p-2.5 sm:p-4 transition-all duration-200', borderTone)}>
       <div className="metric-label text-[10px] sm:text-label truncate">{label}</div>
       <div
         className={clsx(
           'mt-1.5 tabular font-display text-metricSm font-black',
-          tone === 'good' ? 'text-accent' : tone === 'bad' ? 'text-danger' : 'text-ink',
+          tone === 'good' ? 'text-success' : tone === 'bad' ? 'text-danger' : 'text-ink',
         )}
       >
         {value}
@@ -556,12 +556,12 @@ function Td({
 /** Neutral pre-mount placeholder. Contains no fabricated values. */
 function Skeleton() {
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-8">
+    <div className="mx-auto max-w-[1400px] overflow-x-hidden px-4 py-8 sm:px-5">
       <div className="h-9 w-48 animate-pulse rounded bg-base-raised" />
       <div className="mt-3 h-4 w-72 animate-pulse rounded bg-base-raised" />
-      <div className="mt-7 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-7 grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-6">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 animate-pulse rounded-card bg-base-raised" />
+          <div key={i} className="h-20 sm:h-24 animate-pulse rounded-card bg-base-raised" />
         ))}
       </div>
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -593,11 +593,11 @@ function EmptyState() {
         Your form score trend, rep breakdown and training volume will appear here once you finish
         your first set. Nothing is charted until there is a real session to chart.
       </p>
-      <div className="mt-5 flex justify-center gap-3">
-        <Link href="/workout" className="btn-primary">
+      <div className="mt-5 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+        <Link href="/workout" className="btn-primary inline-flex min-h-11 w-full items-center justify-center sm:w-auto">
           Start your first workout
         </Link>
-        <Link href="/tips" className="btn-secondary">
+        <Link href="/tips" className="btn-secondary inline-flex min-h-11 w-full items-center justify-center sm:w-auto">
           Read form tips
         </Link>
       </div>

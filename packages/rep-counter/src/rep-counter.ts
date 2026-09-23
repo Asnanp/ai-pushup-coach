@@ -473,7 +473,10 @@ export class RepCounter {
     const raw = maskImplausibleAngle(rawAngle);
     if (!Number.isFinite(raw)) return Number.NaN;
     const smoothed = this.smoother.push(raw);
-    return this.median.push(smoothed);
+    const filtered = this.median.push(smoothed);
+    // Keep adaptive refresh / telemetry on the same filtered signal the FSM sees.
+    if (Number.isFinite(filtered)) this.lastAngle = filtered;
+    return filtered;
   }
 
   /**

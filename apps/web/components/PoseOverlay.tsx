@@ -97,9 +97,8 @@ export const PoseOverlay = forwardRef<PoseOverlayHandle, Props>(function PoseOve
         ctx.clearRect(0, 0, W, H);
         if (!landmarks || landmarks.length < 33) return;
 
-        // Landmarks are normalized [0,1]; the video is drawn with object-fit:
-        // cover, so we map into the same cover box or the skeleton would drift
-        // away from the body.
+        // Landmarks are normalized [0,1]. Match the contained video bounds so
+        // the skeleton remains aligned even when the camera is letterboxed.
         const box = coverBox(videoWidth, videoHeight, W, H);
         const px = (i: number) => ({
           x: box.x + landmarks[i].x * box.w,
@@ -410,7 +409,7 @@ function isRightIndex(i: number): boolean {
 }
 
 /**
- * Compute the box a video occupies inside a container under `object-fit: cover`.
+ * Compute the box a video occupies inside a container under `object-fit: contain`.
  * Needed so the skeleton lands on the body rather than on the letterbox.
  */
 function coverBox(
@@ -424,11 +423,11 @@ function coverBox(
   const videoRatio = vw / vh;
 
   if (videoRatio > containerRatio) {
-    // video is wider: it is cropped left/right, fills width
+    // video is wider: letterbox above and below
     const h = cw / videoRatio;
     return { x: 0, y: (ch - h) / 2, w: cw, h };
   }
-  // video is taller: cropped top/bottom, fills height
+  // video is taller: letterbox left and right
   const w = ch * videoRatio;
   return { x: (cw - w) / 2, y: 0, w, h: ch };
 }

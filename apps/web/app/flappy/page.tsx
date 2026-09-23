@@ -818,30 +818,18 @@ export default function FlappyPushUpPage() {
   // Render JSX
   // --------------------------------------------------------------------------
   return (
-    <main className="min-h-screen bg-base pb-24 text-ink">
-      {/* Top Header Bar */}
-      <div className="border-b border-base-border bg-base-raised/70 backdrop-blur-md sticky top-0 z-40">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="text-xs font-semibold uppercase tracking-wider text-ink-muted hover:text-ink transition-colors"
-            >
-              ← Back to App
-            </Link>
-            <span className="text-base-border">|</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold tracking-tight">Flappy Push-Up</span>
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 border border-emerald-500/20">
-                Nose Vision Flight
-              </span>
-            </div>
+    <div className="min-h-screen bg-base pb-16 text-ink">
+      <div className="mx-auto max-w-[1320px] px-4 pt-6 sm:px-6 sm:pt-10 lg:px-8">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="metric-label">Move real. Play real.</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-[-0.045em] sm:text-4xl">Flappy Push-Up</h1>
+            <p className="mt-2 text-sm text-ink-muted">Your nose height controls flight. Move through a push-up to steer.</p>
           </div>
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={toggleMute}
-              className="rounded-full border border-base-border p-2 text-ink-muted hover:text-ink hover:border-ink transition-colors text-xs"
+              className="btn-secondary min-h-10 px-3 text-xs"
               title={isMuted ? 'Unmute Sound FX' : 'Mute Sound FX'}
               aria-label="Toggle Sound"
             >
@@ -849,17 +837,17 @@ export default function FlappyPushUpPage() {
             </button>
             <Link
               href="/workout"
-              className="rounded-full border border-ink/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink hover:bg-ink hover:text-base transition-all"
+              className="btn-secondary min-h-10 px-3 text-xs"
             >
-              Regular Workout ↗
+              Workout ↗
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-6 pt-6">
+      <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-8">
         {/* Game Area Container */}
-        <div className="relative overflow-hidden rounded-2xl border border-base-border bg-black shadow-2xl">
+        <div className="relative overflow-hidden rounded-card border border-base-border bg-[#0b182c] shadow-soft">
           {/* Main 60fps Game Canvas */}
           <canvas
             ref={canvasRef}
@@ -868,8 +856,8 @@ export default function FlappyPushUpPage() {
           />
 
           {/* Picture-in-Picture Live Camera Viewfinder */}
-          <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
-            <div className="relative w-44 h-32 rounded-xl overflow-hidden border-2 border-white/20 bg-slate-900 shadow-xl">
+          <div className="relative z-30 flex items-center justify-between gap-3 border-t border-white/10 p-3 lg:absolute lg:right-4 lg:top-4 lg:flex-col lg:items-end lg:border-0 lg:p-0">
+            <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-control border border-white/20 bg-slate-900 sm:h-32 sm:w-44">
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover mirror-x"
@@ -911,7 +899,7 @@ export default function FlappyPushUpPage() {
             </div>
 
             {/* Depth Telemetry Chip */}
-            <div className="flex items-center gap-2 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-mono text-white/90 border border-white/10 backdrop-blur-md">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-control bg-black/70 px-2.5 py-1 text-[10px] font-mono text-white/90 sm:text-[11px] lg:border lg:border-white/10">
               <span className="text-white/60">ALTITUDE:</span>
               <span className="font-bold text-emerald-400">{(liveNoseAltitude * 100).toFixed(0)}%</span>
               <span className="text-white/40">|</span>
@@ -922,19 +910,19 @@ export default function FlappyPushUpPage() {
 
           {/* Active In-Game HUD (Floating Top-Left) */}
           {gameState === 'PLAYING' && (
-            <div className="absolute top-5 left-5 z-20 flex items-center gap-4">
-              <div className="rounded-xl bg-black/70 px-4 py-2 border border-white/10 backdrop-blur-md flex items-center gap-3">
+            <div className="relative z-20 flex flex-wrap items-center gap-2 border-t border-white/10 p-3 lg:absolute lg:left-5 lg:top-5 lg:gap-4 lg:border-0 lg:p-0">
+              <div className="rounded-control bg-black/70 px-3 py-1.5 border border-white/10 flex items-center gap-2 lg:px-4 lg:py-2">
                 <span className="text-xs uppercase tracking-widest text-white/60 font-semibold">SCORE</span>
-                <span className="text-3xl font-extrabold text-white tabular font-mono">{score}</span>
+                <span className="text-xl font-bold text-white tabular font-mono lg:text-3xl">{score}</span>
               </div>
 
-              <div className="rounded-xl bg-black/70 px-3.5 py-2 border border-white/10 backdrop-blur-md flex items-center gap-2">
+              <div className="rounded-control bg-black/70 px-3 py-1.5 border border-white/10 flex items-center gap-2 lg:px-3.5 lg:py-2">
                 <span className="text-lg">🔥</span>
                 <span className="text-xs uppercase tracking-widest text-white/60 font-semibold">REPS</span>
                 <span className="text-xl font-bold text-amber-400 tabular font-mono">{repsCount}</span>
               </div>
 
-              <div className="rounded-xl bg-black/70 px-3.5 py-2 border border-white/10 backdrop-blur-md flex items-center gap-2">
+              <div className="rounded-control bg-black/70 px-3 py-1.5 border border-white/10 flex items-center gap-2 lg:px-3.5 lg:py-2">
                 <span className="text-xs uppercase tracking-widest text-white/60 font-semibold">BEST</span>
                 <span className="text-lg font-bold text-white/90 tabular font-mono">{highScore}</span>
               </div>
@@ -943,8 +931,8 @@ export default function FlappyPushUpPage() {
 
           {/* 3-2-1 Countdown Overlay */}
           {gameState === 'COUNTDOWN' && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm">
-              <span className="text-8xl font-black text-emerald-400 animate-bounce font-mono">
+            <div className="absolute inset-x-0 top-0 z-30 flex aspect-[16/10] flex-col items-center justify-center bg-black/75 px-4 text-center lg:inset-0 lg:aspect-auto">
+              <span className="text-6xl font-black text-emerald-400 font-mono sm:text-8xl">
                 {countdownNum}
               </span>
               <p className="mt-4 text-sm font-semibold uppercase tracking-widest text-white/80">
@@ -958,14 +946,12 @@ export default function FlappyPushUpPage() {
 
           {/* Standby / Start Screen Overlay */}
           {gameState === 'STANDBY' && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md px-6 text-center">
+            <div className="relative z-30 flex flex-col items-center justify-center bg-[#0b182c] px-5 py-7 text-center lg:absolute lg:inset-0 lg:bg-black/85 lg:py-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-400 mb-4">
                 <span>🐦🏋️‍♂️ Interactive Fitness Mini-Game</span>
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-3">
-                FLAPPY PUSH-UP<span className="text-emerald-500">.</span>
-              </h1>
+              <h2 className="mb-3 text-2xl font-bold tracking-tight text-white sm:text-4xl">Ready to fly?</h2>
               <p className="max-w-md text-sm text-white/70 leading-relaxed mb-6">
                 Your real nose & chest position controls the bird. Push up to lockout to soar high; dive deep to deck to navigate low tunnels!
               </p>
@@ -1001,9 +987,9 @@ export default function FlappyPushUpPage() {
               {/* Start Button */}
               <button
                 onClick={startGameFlow}
-                className="rounded-full bg-emerald-500 hover:bg-emerald-400 px-8 py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all transform hover:scale-105 shadow-lg shadow-emerald-500/25 cursor-pointer"
+                className="rounded-full bg-emerald-500 hover:bg-emerald-400 px-8 py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-colors cursor-pointer"
               >
-                Start Game 🚀
+                Start Game
               </button>
 
               {highScore > 0 && (
@@ -1017,7 +1003,7 @@ export default function FlappyPushUpPage() {
 
           {/* Game Over Screen Overlay */}
           {gameState === 'GAMEOVER' && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md px-6 text-center animate-fadeIn">
+            <div className="relative z-30 flex flex-col items-center justify-center bg-[#0b182c] px-5 py-7 text-center lg:absolute lg:inset-0 lg:bg-black/85 lg:py-4">
               <span className="text-xs font-semibold uppercase tracking-widest text-rose-400 mb-2">
                 RUN FINISHED
               </span>
@@ -1062,9 +1048,9 @@ export default function FlappyPushUpPage() {
 
         {/* How to Play Guide & Biomechanics Overview */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-2xl border border-base-border bg-base-raised p-6">
+          <div className="rounded-card border border-base-border bg-base-raised p-5">
             <div className="flex items-center gap-2 mb-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold">1</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/10 text-accent text-xs font-bold">1</span>
               <h3 className="text-sm font-bold text-ink">Physical Altitude Control</h3>
             </div>
             <p className="text-xs text-ink-muted leading-relaxed">
@@ -1072,7 +1058,7 @@ export default function FlappyPushUpPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-base-border bg-base-raised p-6">
+          <div className="rounded-card border border-base-border bg-base-raised p-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/10 text-sky-600 text-xs font-bold">2</span>
               <h3 className="text-sm font-bold text-ink">Rep Bonus Combos</h3>
@@ -1082,7 +1068,7 @@ export default function FlappyPushUpPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-base-border bg-base-raised p-6">
+          <div className="rounded-card border border-base-border bg-base-raised p-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 text-xs font-bold">3</span>
               <h3 className="text-sm font-bold text-ink">3 Calibrated Levels</h3>
@@ -1093,6 +1079,6 @@ export default function FlappyPushUpPage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

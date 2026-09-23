@@ -9,40 +9,38 @@
     color-scheme: light;
   }
 
+  html {
+    overflow-x: clip;
+  }
+
   html,
   body {
-    @apply bg-base text-ink antialiased selection:bg-neutral-900 selection:text-white;
+    @apply bg-base text-ink antialiased selection:bg-accent/20 selection:text-ink;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     letter-spacing: -0.011em;
   }
 
-  /* Consistent focus ring */
   :focus-visible {
-    @apply outline-none ring-2 ring-ink ring-offset-2 ring-offset-base;
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
   }
 
-  /* Tabular numerals for timers and counts */
   .tabular {
     font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
-  /* ---- Minimal Surfaces ---- */
-
   .card {
-    @apply rounded-card border border-base-border bg-base-raised transition-all duration-200;
+    @apply rounded-card border border-base-border bg-base-raised transition-colors duration-150;
   }
 
   .card-pad {
-    @apply card p-6;
+    @apply card p-5;
   }
 
   .card-interactive {
-    @apply card hover:border-ink/40 cursor-pointer;
+    @apply card hover:border-accent/40 hover:shadow-soft cursor-pointer;
   }
-
-  /* ---- Labels & Metrics ---- */
 
   .metric-label {
     @apply text-label uppercase tracking-widest text-ink-muted font-medium;
@@ -52,24 +50,22 @@
     @apply tabular text-metric text-ink font-bold;
   }
 
-  /* ---- Editorial Pill Buttons ---- */
-
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5
-           text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.98]
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-control px-4 py-2
+           text-sm font-semibold tracking-tight transition-colors duration-150 active:scale-[0.99]
            disabled:cursor-not-allowed disabled:opacity-40 select-none cursor-pointer;
   }
 
   .btn-primary {
-    @apply btn bg-ink text-base hover:bg-ink/85 shadow-sm;
+    @apply btn bg-accent text-white hover:bg-accent-dim;
   }
 
   .btn-secondary {
-    @apply btn border border-base-border bg-base-raised text-ink hover:border-ink hover:bg-base-sunken;
+    @apply btn border border-base-border bg-base-raised text-ink hover:bg-base-hover;
   }
 
   .btn-pill-outline {
-    @apply btn border border-ink text-ink hover:bg-ink hover:text-base;
+    @apply btn border border-base-border text-ink hover:border-accent hover:text-accent;
   }
 
   .btn-danger {
@@ -80,15 +76,13 @@
     @apply btn text-ink-muted hover:text-ink hover:bg-base-hover;
   }
 
-  /* ---- Status Chips ---- */
-
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1
+    @apply inline-flex items-center gap-1.5 rounded-chip border px-2.5 py-1
            text-[11px] font-medium tracking-wide transition-colors;
   }
 
   .chip-good {
-    @apply chip border-emerald-500/30 bg-emerald-500/10 text-emerald-700;
+    @apply chip border-success/30 bg-success/10 text-success;
   }
 
   .chip-bad {
@@ -103,14 +97,12 @@
     @apply chip border-cyan/30 bg-cyan/10 text-cyan;
   }
 
-  /* ---- Progress Meter ---- */
-
   .meter {
     @apply h-1.5 w-full overflow-hidden rounded-full bg-base-sunken border border-base-border;
   }
 
   .meter-fill {
-    @apply h-full rounded-full bg-ink transition-[width] duration-200;
+    @apply h-full rounded-full bg-success transition-[width] duration-200;
   }
 
   .meter-fill-warn {
@@ -130,19 +122,17 @@
   }
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f0f0ee;
+  background: #F4F4F5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d0;
+  background: #D4D4D8;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a2;
+  background: #A1A1AA;
 }
-

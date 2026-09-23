@@ -1,8 +1,10 @@
 # DEMO.md — Booth Script, Choreography & Judge Defence
 
-Everything below describes what the app **actually does**, read from the source.
-Every number is one that was verified in the repository, and the file it came from
-is named next to it. Where a number is not verifiable, it is not stated.
+**Historical draft — do not use its model name or accuracy figures for the current
+presentation.** The browser now ships a Random Forest with 74.6% held-out form
+classification accuracy; several references below still describe an older
+gradient-boosted run. Use [PRESENTATION_SCRIPT.md](PRESENTATION_SCRIPT.md) for the
+current speaking script, model choice, demo steps, and judge questions.
 
 The single most important fact for the presenter: **the live demo is the
 centrepiece.** The talking is scaffolding around two minutes of a real person doing

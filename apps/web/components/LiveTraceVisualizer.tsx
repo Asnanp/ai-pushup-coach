@@ -74,7 +74,7 @@ export function LiveTraceVisualizer({
         return;
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#0B1117';
+      ctx.fillStyle = '#FAFAFA';
       ctx.fillRect(0, 0, w, h);
 
       const rows = CHANNELS.length;
@@ -82,9 +82,9 @@ export function LiveTraceVisualizer({
       const pts = buf.current;
       CHANNELS.forEach((ch, i) => {
         const y0 = i * rowH;
-        ctx.fillStyle = '#111827';
+        ctx.fillStyle = '#F4F4F5';
         ctx.fillRect(0, y0 + 2, w, rowH - 4);
-        ctx.fillStyle = '#9ca3af';
+        ctx.fillStyle = '#71717A';
         ctx.font = '11px ui-monospace, monospace';
         ctx.fillText(ch.label, 8, y0 + 16);
         if (pts.length < 2) return;

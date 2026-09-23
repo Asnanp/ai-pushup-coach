@@ -353,3 +353,52 @@ describe('session aggregation', () => {
     ).toBe(3);
   });
 });
+
+describe("live-only assessment (mobile dropout)", () => {
+  it("grades from live cycle evidence when pose frames are missing", () => {
+    const good = assessRep(
+      {
+        repIndex: 1,
+        frames: [],
+        view: "front",
+        live: {
+          phaseExcursion: 0.72,
+          angularExcursion: 40,
+          depthExcursion: 0.08,
+          shoulderYTravel: 0.12,
+        },
+      },
+      { model: null, decisionThreshold: 0.53 },
+    );
+    expect(good.label).not.toBe("unknown");
+    expect(Number.isFinite(good.repScore)).toBe(true);
+    expect(good.uncertain).toBe(true);
+    expect(good.formStatus).toBe("UNCERTAIN");
+
+    const shallow = assessRep(
+      {
+        repIndex: 2,
+        frames: [],
+        view: "front",
+        live: {
+          phaseExcursion: 0.15,
+          angularExcursion: 8,
+          depthExcursion: 0.01,
+          shoulderYTravel: 0.02,
+        },
+      },
+      { model: null, decisionThreshold: 0.53 },
+    );
+    expect(shallow.valid).toBe(false);
+    expect(shallow.primaryIssue).toBe("INCOMPLETE_DEPTH");
+  });
+
+  it("still returns unknown when neither frames nor live evidence exist", () => {
+    const a = assessRep(
+      { repIndex: 1, frames: [], view: "side" },
+      { model: null, decisionThreshold: 0.53 },
+    );
+    expect(a.label).toBe("unknown");
+    expect(a.valid).toBe(false);
+  });
+});

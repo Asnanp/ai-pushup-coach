@@ -8,7 +8,7 @@
 
 import type { FrameFeatures, RepCycleEvent, V3RepState } from '@ai-pushup-coach/types';
 
-export const MIN_PHASE_EXCURSION = 0.14;
+export const MIN_PHASE_EXCURSION = 0.12;
 export const BOTTOM_PHASE = 0.42;
 export const TOP_PHASE = 0.22;
 export const REVERSAL_PHASE = 0.18;

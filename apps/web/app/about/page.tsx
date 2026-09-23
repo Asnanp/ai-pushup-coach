@@ -20,6 +20,7 @@
 
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import Image from 'next/image';
 import { MetricCard } from '@/components/MetricCard';
 
 export const metadata: Metadata = {
@@ -30,17 +31,22 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-8">
-      <header>
-        <p className="metric-label">About</p>
-        <h1 className="mt-2 text-display font-semibold tracking-tight text-ink">
-          How this actually works
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          The short version: repetitions are counted by geometry, and form is judged by a
-          trained classifier. Those are two different mechanisms doing two different jobs,
-          and this page documents both — including where the second one is weak.
-        </p>
+    <div className="mx-auto max-w-[1320px] overflow-x-hidden px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+      <header className="grid gap-7 lg:grid-cols-[1fr_0.85fr] lg:items-center lg:gap-14">
+        <div>
+          <p className="metric-label">About AI Push-Up Coach</p>
+          <h1 className="mt-3 max-w-2xl text-4xl font-bold leading-[1.04] tracking-[-0.05em] text-ink sm:text-5xl">
+            Smarter push-ups, built for real progress.
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-ink-muted">
+            Your camera tracks movement in the browser. Geometry counts completed reps;
+            a trained classifier assesses each rep window and helps explain your form.
+          </p>
+          <p className="mt-4 text-sm text-ink-muted">No video leaves your device.</p>
+        </div>
+        <div className="relative aspect-[8/5] overflow-hidden rounded-card border border-base-border bg-base-sunken">
+          <Image src="/pushup-coach-preview.png" alt="Athlete performing a push-up" fill unoptimized className="object-cover object-center" sizes="(max-width: 1024px) 100vw, 45vw" />
+        </div>
       </header>
 
       {/* ------------------------------------------------------------------ */}
@@ -49,21 +55,21 @@ export default function AboutPage() {
 
       <section
         aria-label="Headline model metrics"
-        className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4"
+        className="mt-10 grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4"
       >
         <MetricCard
           label="Test accuracy"
-          value="0.746"
+          value="74.6%"
           caption="153 of 205 held-out reps"
         />
         <MetricCard
           label="Test macro-F1"
-          value="0.741"
+          value="74.1%"
           caption="Mean of the two per-class F1 scores"
         />
         <MetricCard
           label="Bad-form recall"
-          value="0.756"
+          value="75.6%"
           caption="62 of 82 bad reps caught"
           tone="neutral"
         />
@@ -647,6 +653,12 @@ INVALID otherwise`}
         title="Privacy"
         lede="Pose estimation runs in the browser. Video never leaves the device, and no video is stored."
       >
+        <div className="mb-4 flex flex-wrap gap-2">
+          <span className="chip-neutral">Runs in browser</span>
+          <span className="chip-neutral">No camera footage upload</span>
+          <span className="chip-neutral">Local pose/model assets</span>
+          <span className="chip-neutral">No video storage</span>
+        </div>
         <div className="max-w-2xl space-y-4 text-sm leading-relaxed text-ink-muted">
           <p>
             The camera stream is read into a canvas on the client and passed to MediaPipe in the
@@ -727,7 +739,7 @@ INVALID otherwise`}
           >
             <Row cells={['Web app', 'Next.js 15 (App Router), React 19', 'Routing, server-rendered pages, the workout UI. This page is a server component.']} />
             <Row cells={['Language', 'TypeScript 5.7 in strict mode', 'The whole client, including the model runtime and the feature extractor.']} />
-            <Row cells={['Styling', 'Tailwind CSS 3.4', 'Design tokens for a dark, restrained theme. One accent colour, reserved for valid reps.']} />
+            <Row cells={['Styling', 'Tailwind CSS 3.4', 'Light product tokens. Blue accent for CTAs; success green for valid form.']} />
             <Row cells={['Pose estimation', 'MediaPipe Pose Landmarker (@mediapipe/tasks-vision 0.10.18)', '33 landmarks with visibility, running in the browser.']} />
             <Row cells={['Training', 'scikit-learn (Python)', 'Random Forest classifier fitted on the extracted rep features; candidate comparison and evaluation.']} />
             <Row cells={['Model runtime', 'JSON export of the fitted sklearn model', 'A dependency-free tree walker in the browser. No ML library ships to the client.']} />
@@ -970,7 +982,7 @@ function Row({
  */
 function CorrectCell({ count }: { count: number }) {
   return (
-    <td className="tabular px-4 py-3 font-mono text-xs font-semibold text-accent">
+    <td className="tabular px-4 py-3 font-mono text-xs font-semibold text-success">
       {count}
       <span className="sr-only"> correct</span>
     </td>

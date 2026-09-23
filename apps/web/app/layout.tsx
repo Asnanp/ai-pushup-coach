@@ -4,22 +4,23 @@ import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ai-pushup-couch.vercel.app'),
-  title: 'ai-pushup-couch — Better form. A stronger you.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ai-pushup-coach.vercel.app'),
+  title: 'AI Push-Up Coach — Better form. A stronger you.',
   description:
     'Real-time push-up form analysis using on-device pose estimation. Counts reps, detects form faults, and scores your technique.',
-  applicationName: 'ai-pushup-couch',
+  applicationName: 'AI Push-Up Coach',
 };
 
 export const viewport = {
-  themeColor: '#0B1117',
+  themeColor: '#FAFAFA',
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className="flex min-h-screen flex-col bg-base">
         <a
           href="#main"

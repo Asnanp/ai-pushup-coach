@@ -149,6 +149,18 @@ describe('FormModel.predict', () => {
     expect(b).toBeCloseTo(sigmoid(-2), 10);
   });
 
+  it('uses the class-zero coefficient row for an exported good-form logistic model', () => {
+    const model = new FormModel();
+    const exported: LogisticExport = {
+      kind: 'logistic',
+      coef: [-1, 1],
+      intercept: [0, 0],
+      classes: [0, 1],
+    };
+    expect(model.load(meta({ positive_class: 0, positive_class_meaning: 'P(good form)' }), exported)).toBe(true);
+    expect(model.predict([2])?.goodProbability).toBeCloseTo(sigmoid(-2), 10);
+  });
+
   it('walks a forest and averages per-leaf class probabilities', () => {
     const model = new FormModel();
     model.load(meta({ model_type: 'forest' }), forest);

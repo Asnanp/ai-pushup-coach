@@ -1,9 +1,9 @@
 /**
  * apps/web/tailwind.config.ts
  *
- * Minimalist design tokens:
- * Clean, restrained dark theme. Subtle borders, high contrast typography,
- * zero decorative clutter or artificial glow.
+ * Light, Linear-tight product tokens:
+ * off-white canvas, white raised panels, one restrained blue accent for CTAs,
+ * success green reserved for real form-good / valid states.
  */
 
 import type { Config } from 'tailwindcss';
@@ -17,41 +17,42 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Architectural Swiss editorial palette (off-white canvas, pure white cards)
         base: {
-          DEFAULT: '#F9F9F8', // clean editorial off-white
-          raised: '#FFFFFF', // pure white card surface
-          sunken: '#F0F0EE', // subtle sunken surface
-          border: '#E5E5E3', // crisp hairline border
-          hover: '#EBEBE8',
+          DEFAULT: '#FAFAFA',
+          raised: '#FFFFFF',
+          sunken: '#F4F4F5',
+          border: '#E4E4E7',
+          hover: '#F4F4F5',
         },
-        // High contrast editorial typography
         ink: {
-          DEFAULT: '#111111', // deep charcoal / black
-          muted: '#555555', // clean editorial body gray
-          faint: '#888888', // subtle index numbering / captions
+          DEFAULT: '#0A0A0A',
+          muted: '#71717A',
+          faint: '#A1A1AA',
         },
-        // High-contrast primary action (solid black)
         accent: {
-          DEFAULT: '#111111',
-          dim: '#262626',
-          wash: 'rgba(0, 0, 0, 0.05)',
+          DEFAULT: '#2563EB',
+          dim: '#1D4ED8',
+          wash: 'rgba(37, 99, 235, 0.08)',
         },
-        // Functional telemetry accents
+        success: {
+          DEFAULT: '#16A34A',
+          dim: '#15803D',
+          wash: 'rgba(22, 163, 74, 0.10)',
+        },
         cyan: {
-          DEFAULT: '#0284C7',
-          dim: '#0369A1',
-          wash: 'rgba(2, 132, 199, 0.08)',
+          DEFAULT: '#0891B2',
+          dim: '#0E7490',
+          wash: 'rgba(8, 145, 178, 0.10)',
         },
         danger: {
           DEFAULT: '#DC2626',
           dim: '#B91C1C',
-          wash: 'rgba(220, 38, 38, 0.08)',
+          wash: 'rgba(220, 38, 38, 0.10)',
         },
         warn: {
           DEFAULT: '#D97706',
           dim: '#B45309',
-          wash: 'rgba(217, 119, 6, 0.08)',
+          wash: 'rgba(217, 119, 6, 0.10)',
         },
       },
       fontFamily: {
@@ -77,9 +78,26 @@ const config: Config = {
         label: ['0.6875rem', { lineHeight: '1.4', letterSpacing: '0.08em', fontWeight: '600' }],
       },
       borderRadius: {
-        card: '16px',
-        control: '9999px',
-        chip: '9999px',
+        card: '10px',
+        control: '8px',
+        chip: '6px',
+      },
+      boxShadow: {
+        soft: '0 1px 2px rgba(10, 10, 10, 0.04), 0 1px 3px rgba(10, 10, 10, 0.06)',
+      },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'pulse-dot': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.4' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 0.35s ease-out',
+        'pulse-dot': 'pulse-dot 1.6s ease-in-out infinite',
       },
     },
   },

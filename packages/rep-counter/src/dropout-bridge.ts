@@ -7,7 +7,7 @@
 
 import type { RepMotionSignal } from '@ai-pushup-coach/types';
 
-export const SHORT_DROPOUT_FRAMES = 5;
+export const SHORT_DROPOUT_FRAMES = 8;
 
 export class DropoutBridge {
   private lastGood: RepMotionSignal | null = null;

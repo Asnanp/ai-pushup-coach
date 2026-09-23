@@ -1,5 +1,5 @@
 {
-  "name": "ai-pushup-couch-web",
+  "name": "ai-pushup-coach-web",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.18",
-    "ai-pushup-couch": "file:../..",
+    "ai-pushup-coach": "file:../..",
     "clsx": "2.1.1",
     "eslint-config-next": "^15.5.25",
     "next": "^15.5.25",

@@ -407,7 +407,7 @@ function Tile({ label, value, tone }: { label: string; value: string; tone?: 'go
       <div
         className={clsx(
           'tabular mt-1.5 text-metricSm font-bold',
-          tone === 'good' ? 'text-accent' : 'text-ink',
+          tone === 'good' ? 'text-success' : 'text-ink',
         )}
       >
         {value}

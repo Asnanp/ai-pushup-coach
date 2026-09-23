@@ -1,9 +1,15 @@
-'use client';
+﻿'use client';
 
 /**
  * components/CameraStage.tsx
  *
  * Minimalist camera panel: clean video feed with pose canvas overlay.
+ *
+ * A contained landscape camera on every viewport keeps the full body visible.
+ * Override via the `aspect` prop; pass extra layout via `className`.
+ *
+ * Does NOT paint metrics HUD inside the video — Frontend owns overlay chips.
+ * Video / skeleton / chrome use `pointer-events-none` so FE overlays stay clickable.
  */
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
@@ -15,6 +21,12 @@ export interface CameraStageHandle {
   getVideo: () => HTMLVideoElement | null;
 }
 
+/**
+ * Portrait-first default for phones; landscape video from lg up.
+ * Frontend may pass a custom `aspect` string to override.
+ */
+export const CAMERA_STAGE_DEFAULT_ASPECT = 'aspect-[4/3] sm:aspect-video';
+
 interface Props {
   onPoseFrame: (frame: PoseFrame) => void;
   isLive: boolean;
@@ -22,6 +34,9 @@ interface Props {
   videoWidth: number;
   videoHeight: number;
   className?: string;
+  /** Show an illustrative still only before a camera stream starts. */
+  showPoster?: boolean;
+  /** Tailwind aspect / height utilities. Defaults to CAMERA_STAGE_DEFAULT_ASPECT. */
   aspect?: string;
 }
 
@@ -33,7 +48,8 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
     videoWidth,
     videoHeight,
     className,
-    aspect = 'aspect-video',
+    showPoster = false,
+    aspect = CAMERA_STAGE_DEFAULT_ASPECT,
   },
   ref,
 ) {
@@ -50,12 +66,13 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
   }));
 
   const handlePoseFrame = useCallback((frame: PoseFrame) => {
-    if (frame.valid && frame.landmarks.length >= 33) {
+    // Always forward to the session first — overlay draw must never starve the FSM.
+    onPoseFrameRef.current(frame);
+    if (frame.valid && frame.landmarks.length >= 25) {
       overlayRef.current?.draw(frame.landmarks, frame.side);
     } else {
       overlayRef.current?.clear();
     }
-    onPoseFrameRef.current(frame);
   }, []);
 
   useEffect(() => {
@@ -72,10 +89,15 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
         aspect,
         className,
       )}
+      style={showPoster ? {
+        backgroundImage: "url('/pushup-coach-preview.png')",
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      } : undefined}
     >
       <video
         ref={videoRef}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="pointer-events-none absolute inset-0 h-full w-full object-contain"
         playsInline
         muted
         aria-label="Live camera feed for push-up analysis"
@@ -85,9 +107,10 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
         ref={overlayRef}
         videoWidth={videoWidth}
         videoHeight={videoHeight}
+        className="pointer-events-none"
       />
 
-      {/* Minimal Live Indicator */}
+      {/* Minimal Live Indicator — non-interactive so FE overlays remain hittable */}
       <div className="pointer-events-none absolute left-3 top-3 z-20">
         <span
           className={clsx(
@@ -104,7 +127,7 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
             )}
             aria-hidden="true"
           />
-          {isLive ? 'Live' : 'Standby'}
+          {isLive ? 'Live' : showPoster ? 'Preview' : 'Standby'}
         </span>
       </div>
 
@@ -117,7 +140,9 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
         >
           <div className="rounded-card border border-base-border bg-base-raised px-5 py-3 text-center shadow-lg">
             <p className="text-sm font-semibold text-ink">{overlayMessage}</p>
-            <p className="mt-1 text-xs text-ink-muted">Tracking resumes when in view</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {isLive ? 'Tracking resumes when you are in view' : 'Keep your whole body in frame'}
+            </p>
           </div>
         </div>
       )}

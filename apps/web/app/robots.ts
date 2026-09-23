@@ -24,7 +24,7 @@ import type { MetadataRoute } from 'next';
  * name list, it should move to the disallow list.
  */
 
-const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ai-pushup-couch.vercel.app').replace(/\/$/, '');
+const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ai-pushup-coach.vercel.app').replace(/\/$/, '');
 
 export default function robots(): MetadataRoute.Robots {
   return {

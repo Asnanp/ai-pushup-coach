@@ -236,7 +236,9 @@ export class WorkoutSession {
   private pausedReason: 'pose-lost' | 'user' | null = null;
 
   private lostFrames = 0;
-  private static readonly LOST_FRAMES_TO_PAUSE = 12; // ~0.6s at 20fps
+  private poseLostSinceTs: number | null = null;
+  /** Pose-timestamp based so 15fps mobile and fake timers share one gap. */
+  private static readonly LOST_POSE_PAUSE_S = 0.7;
 
   constructor(cfg: SessionConfig) {
     this.cfg = cfg;
@@ -329,8 +331,10 @@ export class WorkoutSession {
   beginCalibration(): void {
     this.phase = 'calibrating';
     this.calibrationSamples = [];
+    this.calibrationFrameLog = [];
     this.calibrationComplete = false;
     this.calibrationHasRom = false;
+    this.liveElbowAngle = null;
     this.adaptiveSamples = [];
     this.framesSinceRefresh = 0;
     this.viewEstimator.reset();
@@ -489,6 +493,7 @@ export class WorkoutSession {
     this.pausedReason = null;
     this.phase = 'active';
     this.lostFrames = 0;
+    this.poseLostSinceTs = null;
     this.emit(true);
   }
 
@@ -519,7 +524,9 @@ export class WorkoutSession {
     this.liveElbowAngle = null;
     this.pausedReason = null;
     this.lostFrames = 0;
+    this.poseLostSinceTs = null;
     this.calibrationSamples = [];
+    this.calibrationFrameLog = [];
     this.calibrationComplete = false;
     this.calibrationHasRom = false;
     this.adaptiveSamples = [];
@@ -586,7 +593,17 @@ export class WorkoutSession {
         : Number.isFinite(signal.phaseEvidence)
           ? signal.phaseEvidence
           : frame.elbowAngle;
-      if (frame.valid && Number.isFinite(angleToObserve)) {
+
+      // Mobile: biomechanics frame.valid can flicker while the signal is usable.
+      // Calibrate from the filtered signal whenever we have a finite angle.
+      const canObserve =
+        Number.isFinite(angleToObserve) &&
+        (frame.valid ||
+          Boolean(pose?.capability?.canCountRep) ||
+          (Boolean(pose?.landmarks && pose.landmarks.length >= 25) &&
+            (signal.poseConfidence > 0.18 || (pose?.sideVisibility ?? 0) > 0.28)));
+
+      if (canObserve) {
         const filtered = this.counter.observe(angleToObserve);
         if (Number.isFinite(filtered)) {
           this.calibrationSamples.push(filtered);
@@ -606,13 +623,21 @@ export class WorkoutSession {
               this.viewEstimator.lock();
             }
           }
+
+          // Drive two-stage motion calibrator for UI prompts / ROM reps.
+          const recent = this.calibrationFrameLog.slice(-12);
+          const cameraReady =
+            this.calibrationHasRom ||
+            recent.filter((f) => f.valid || f.upperBodyVisible).length >= 4;
+          this.motionCalibrator.setCameraCheckPassed(cameraReady);
+          this.motionCalibrator.feed(filtered, pose?.timestamp ?? performance.now() / 1000);
         }
       }
 
       this.calibrationFrameLog.push(buildObservation(frame, pose, this.activeV2View));
       if (this.calibrationFrameLog.length > 60) this.calibrationFrameLog.shift();
 
-      this.liveElbowAngle = frame.valid && Number.isFinite(angleToObserve) ? angleToObserve : null;
+      this.liveElbowAngle = canObserve && Number.isFinite(angleToObserve) ? angleToObserve : null;
       if (this.liveElbowAngle !== null && Number.isFinite(this.liveElbowAngle)) {
         this.cfg.callbacks.onMotionSample?.({
           angle: this.liveElbowAngle,
@@ -640,14 +665,31 @@ export class WorkoutSession {
     const canCount =
       pose?.capability?.canCountRep ||
       frame.valid ||
-      Boolean(pose?.landmarks && pose.landmarks.length >= 25 && (pose.sideVisibility ?? 0) > 0.28);
+      Boolean(pose?.landmarks && pose.landmarks.length >= 25 && (pose.sideVisibility ?? 0) > 0.28) ||
+      (Number.isFinite(signal.elbowCombined) && signal.poseConfidence > 0.18);
 
     if (!canCount) {
       this.lostFrames++;
+      const tLost = pose?.timestamp ?? frame.timestamp;
+      if (this.poseLostSinceTs === null) this.poseLostSinceTs = tLost;
       this.liveElbowAngle = null;
+
+      // Still feed V3 so DropoutBridge can hold the cycle — never starve the FSM.
+      this.v3.feed({
+        timestamp: tLost,
+        landmarks: pose?.landmarks,
+        worldLandmarks: pose?.worldLandmarks,
+        view: this.activeV2View,
+        viewConfidence: this.viewEstimator.getLastEstimate()?.confidence,
+        frame: undefined,
+        canCount: false,
+        signal,
+      });
+
       if (
-        this.lostFrames >= WorkoutSession.LOST_FRAMES_TO_PAUSE &&
-        this.phase === 'active'
+        this.phase === 'active' &&
+        this.poseLostSinceTs !== null &&
+        tLost - this.poseLostSinceTs >= WorkoutSession.LOST_POSE_PAUSE_S
       ) {
         this.pause('pose-lost');
       }
@@ -656,9 +698,16 @@ export class WorkoutSession {
 
     if (this.lostFrames > 0 && this.phase === 'paused' && this.pausedReason === 'pose-lost') {
       this.lostFrames = 0;
+      this.poseLostSinceTs = null;
       this.resume();
     }
     this.lostFrames = 0;
+    this.poseLostSinceTs = null;
+
+    // Keep adaptive band on the same filtered signal the FSM / calibrator use.
+    if (Number.isFinite(signal.elbowCombined)) {
+      this.counter.observe(signal.elbowCombined);
+    }
 
     const v3 = this.v3.feed({
       timestamp: pose?.timestamp ?? frame.timestamp,
@@ -666,7 +715,8 @@ export class WorkoutSession {
       worldLandmarks: pose?.worldLandmarks,
       view: this.activeV2View,
       viewConfidence: this.viewEstimator.getLastEstimate()?.confidence,
-      frame: frame.valid ? frame : undefined,
+      // Prefer valid frames; still attach when extract produced angles so form isn't empty.
+      frame: frame.valid || Number.isFinite(frame.elbowAngle) ? frame : undefined,
       canCount: true,
       signal,
     });
@@ -687,7 +737,7 @@ export class WorkoutSession {
 
     this.refreshThresholdsAdaptively();
     if (v3.event?.counted) {
-      const frames = v3.event.frames.length > 0 ? v3.event.frames : frame.valid ? [frame] : [];
+      const frames = v3.event.frames.length > 0 ? v3.event.frames : (frame.valid || Number.isFinite(frame.elbowAngle)) ? [frame] : [];
       this.handleCompletedRep(frames, v3.event);
     }
   }

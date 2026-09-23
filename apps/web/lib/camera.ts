@@ -134,6 +134,22 @@ export interface StartOptions {
   fps?: number;
 }
 
+/** Phone / coarse-pointer: lower res + FPS so MediaPipe keeps up. Desktop unchanged. */
+export function getPreferredCaptureProfile(): Required<Pick<StartOptions, "width" | "height" | "fps">> & {
+  poseFps: number;
+} {
+  if (typeof window === "undefined") {
+    return { width: 1280, height: 720, fps: 30, poseFps: 24 };
+  }
+  const narrow = window.matchMedia("(max-width: 1023px)").matches;
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  if (narrow || coarse) {
+    return { width: 960, height: 540, fps: 24, poseFps: 15 };
+  }
+  return { width: 1280, height: 720, fps: 30, poseFps: 24 };
+}
+
+
 export class CameraEngine {
   private stream: MediaStream | null = null;
 
@@ -201,7 +217,12 @@ export class CameraEngine {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: { width: 1280, height: 720, frameRate: 30 },
+            video: {
+              width: { ideal: opts.width ?? 1280 },
+              height: { ideal: opts.height ?? 720 },
+              frameRate: { ideal: opts.fps ?? 30 },
+              facingMode: 'user',
+            },
           });
         } catch (retryErr) {
           throw makeCaptureError(classifyError(retryErr));
@@ -220,6 +241,8 @@ export class CameraEngine {
     try {
       await video.play();
     } catch {
+      await this.stop();
+      video.srcObject = null;
       throw makeCaptureError('INIT_FAILED');
     }
 
@@ -233,6 +256,7 @@ export class CameraEngine {
 
     if (video.videoWidth === 0) {
       await this.stop();
+      video.srcObject = null;
       throw makeCaptureError('INIT_FAILED');
     }
   }

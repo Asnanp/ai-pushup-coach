@@ -71,6 +71,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from export_model import export_forest, export_gbm, export_logistic, unwrap
 
 PROCESSED_DIR = ML_DIR / "data" / "processed"
 MODELS_DIR = ML_DIR / "models"
@@ -221,14 +222,9 @@ def impute_features(X_train: np.ndarray, X_eval: np.ndarray) -> tuple[np.ndarray
     return fill(X_train), fill(X_eval), means
 
 
-def evaluate_candidates_cv(X_dev, y_dev, subjects_dev):
-    """
-    Performs 5-fold GroupKFold by subject on development data.
-    Collects out-of-fold (OOF) predictions for model and threshold selection.
-    """
-    gkf = GroupKFold(n_splits=5)
-    
-    candidates = {
+def candidate_factories():
+    """Keep candidate selection and final refitting on the same estimator spec."""
+    return {
         "random_forest": lambda: RandomForestClassifier(
             n_estimators=300,
             max_depth=5,
@@ -249,6 +245,15 @@ def evaluate_candidates_cv(X_dev, y_dev, subjects_dev):
             random_state=42,
         ),
     }
+
+
+def evaluate_candidates_cv(X_dev, y_dev, subjects_dev):
+    """
+    Performs 5-fold GroupKFold by subject on development data.
+    Collects out-of-fold (OOF) predictions for model and threshold selection.
+    """
+    gkf = GroupKFold(n_splits=5)
+    candidates = candidate_factories()
 
     results = {}
     oof_predictions = {name: np.zeros(len(X_dev)) for name in candidates}
@@ -344,26 +349,18 @@ def export_model_json(clf, train_means, threshold, test_metrics, candidates_summ
     Exports the final model to pure JSON compatible with packages/form-engine.
     Also creates models/pushup_form_model.json, metadata, and parity fixtures.
     """
-    trees = []
-    for est in clf.estimators_:
-        t = est.tree_
-        counts = t.value[:, 0, :] # (n_nodes, n_classes)
-        trees.append({
-            "childrenLeft": t.children_left.tolist(),
-            "childrenRight": t.children_right.tolist(),
-            "feature": t.feature.tolist(),
-            "threshold": t.threshold.tolist(),
-            "value": counts.tolist(),
-        })
-
-    model_json = {
-        "kind": "forest",
-        "trees": trees,
-        "classes": [int(c) for c in clf.classes_], # [0, 1] where 0=good, 1=bad
-    }
+    estimator, scaler = unwrap(clf)
+    if isinstance(estimator, RandomForestClassifier):
+        model_json = export_forest(estimator)
+    elif isinstance(estimator, GradientBoostingClassifier):
+        model_json = export_gbm(estimator)
+    elif isinstance(estimator, LogisticRegression):
+        model_json = export_logistic(estimator, scaler)
+    else:
+        raise TypeError(f"No browser export for {type(estimator).__name__}")
 
     metadata_json = {
-        "model_type": "RandomForestClassifier",
+        "model_type": type(estimator).__name__,
         "feature_spec_version": FEATURE_SPEC_VERSION,
         "feature_names": MODEL_FEATURE_NAMES,
         "n_features": len(MODEL_FEATURE_NAMES),
@@ -466,14 +463,7 @@ def main():
     print("\nRefitting final model on all 20 development subjects...")
     X_dev_imp, X_test_imp, dev_means = impute_features(X_dev, X_test)
 
-    final_model = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=5,
-        min_samples_leaf=4,
-        class_weight="balanced",
-        random_state=42,
-        n_jobs=-1,
-    )
+    final_model = candidate_factories()[winner_name]()
     final_model.fit(X_dev_imp, y_dev)
 
     # Evaluate ONCE on sacred held-out test subjects

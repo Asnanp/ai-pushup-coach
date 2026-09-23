@@ -1,5 +1,5 @@
 {
-  "name": "ai-pushup-couch",
+  "name": "ai-pushup-coach",
   "version": "1.0.0",
   "private": true,
   "description": "Real-time push-up form coach: MediaPipe pose estimation, an FSM rep counter, and a trained sklearn form classifier exported to a dependency-free JSON runtime.",

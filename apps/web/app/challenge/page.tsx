@@ -378,10 +378,10 @@ export default function ChallengePage() {
     return (
       <div className="mx-auto max-w-lg px-5 py-14" aria-busy="true" aria-label="Loading challenge">
         {pageMeta}
-        <div className="mx-auto h-6 w-32 animate-pulse rounded bg-base-raised" />
-        <div className="mx-auto mt-4 h-9 w-64 animate-pulse rounded bg-base-raised" />
-        <div className="mx-auto mt-3 h-4 w-80 animate-pulse rounded bg-base-raised" />
-        <div className="mt-7 h-72 animate-pulse rounded-card bg-base-raised" />
+        <div className="mx-auto h-6 w-32 animate-pulse rounded border border-base-border bg-ink/[0.06]" />
+        <div className="mx-auto mt-4 h-9 w-64 animate-pulse rounded border border-base-border bg-ink/[0.06]" />
+        <div className="mx-auto mt-3 h-4 w-80 animate-pulse rounded border border-base-border bg-ink/[0.06]" />
+        <div className="mt-7 h-72 animate-pulse rounded-card border border-base-border bg-ink/[0.06]" />
       </div>
     );
   }
@@ -392,24 +392,20 @@ export default function ChallengePage() {
     const wasTrimmed = name !== cleanName;
 
     return (
-      <div className="mx-auto max-w-lg px-5 py-14">
+      <div className="mx-auto max-w-lg px-4 py-8 sm:px-5 sm:py-12">
         {pageMeta}
-        <div className="text-center">
-          <span className="chip-neutral">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-            IT Fest mode
-          </span>
-          <h1 className="mt-4 text-display font-semibold tracking-tight text-ink">
-            30 Second Challenge
+        <div>
+          <p className="metric-label">Test yourself. See your progress.</p>
+          <h1 className="mt-2 text-4xl font-bold tracking-[-0.045em] text-ink sm:text-5xl">
+            30s Challenge
           </h1>
-          <p className="mt-2 text-sm text-ink-muted">
-            Maximum <span className="font-medium text-accent">valid</span> push-ups in 30 seconds.
-            Only clean reps count toward your score — a rushed bad rep scores nothing.
+          <p className="mt-3 text-base leading-relaxed text-ink-muted">
+            How many valid push-ups can you complete in 30 seconds? Enter a name for your result, then get into position.
           </p>
         </div>
 
         <form
-          className="card mt-7 p-5"
+          className="card mt-6 p-5"
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
@@ -461,63 +457,22 @@ export default function ChallengePage() {
 
           <button
             type="submit"
-            className="btn-primary mt-4 w-full"
+            className="btn-primary mt-4 min-h-12 w-full"
             disabled={!nameValid}
             aria-describedby="challenge-name-hint"
           >
-            Continue
+            Set up challenge
           </button>
           <Link href="/leaderboard" className="btn-ghost mt-2 w-full">
             View leaderboard
           </Link>
         </form>
 
-        {/* Real state of this browser's board, read from storage after mount. */}
-        <div className="card mt-4 p-5">
-          <h2 className="metric-label">This browser</h2>
-          {board.length === 0 ? (
-            <p className="mt-1.5 text-sm text-ink-muted">
-              No challenge runs recorded here yet. Your first finished run posts a score.
-            </p>
-          ) : (
-            <>
-              <p className="mt-1.5 text-sm text-ink-muted">
-                <span className="tabular text-ink">{formatInt(board.length)}</span>{' '}
-                {board.length === 1 ? 'run' : 'runs'} recorded here. Best so far:{' '}
-                <span className="tabular font-medium text-accent">
-                  {formatInt(board[0]?.validReps ?? null)}
-                </span>{' '}
-                valid reps.
-              </p>
-              <p className="mt-1 text-xs text-ink-faint">
-                Each finished run adds its own entry — nothing is overwritten, so a second attempt
-                adds a second row.
-              </p>
-            </>
-          )}
-        </div>
-
-        <div className="card mt-4 p-5">
-          <h2 className="text-sm font-semibold text-ink">How the board is ranked</h2>
-          <ol className="mt-3 space-y-2 text-xs leading-relaxed text-ink-muted">
-            <li>
-              <span className="text-ink">1. Valid reps</span> — most first.
-            </li>
-            <li>
-              <span className="text-ink">2. Form score</span> — highest first.
-            </li>
-            <li>
-              <span className="text-ink">3. Duration</span> — shortest first.
-            </li>
-            <li>
-              <span className="text-ink">4. Submitted at</span> — earliest first.
-            </li>
-          </ol>
-          <p className="mt-3 text-xs text-ink-faint">
-            Bad reps are recorded and shown but never count toward rank, so a fast sloppy set cannot
-            win.
+        {board.length > 0 && (
+          <p className="mt-4 text-sm text-ink-muted">
+            Your best on this browser: <span className="tabular font-semibold text-ink">{formatInt(board[0]?.validReps ?? null)} valid reps</span>.
           </p>
-        </div>
+        )}
       </div>
     );
   }
@@ -549,35 +504,53 @@ export default function ChallengePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-6">
+    <div className="mx-auto max-w-[1400px] overflow-x-hidden px-3 py-3 sm:px-5 sm:py-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-6">
       {pageMeta}
+      <header className="mb-5 px-1 sm:mb-6">
+        <p className="metric-label">Test yourself. See your progress.</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-[-0.045em] text-ink sm:text-4xl">30s Challenge</h1>
+        <p className="mt-2 text-sm text-ink-muted sm:text-[16px]">How many valid push-ups can you complete in 30 seconds?</p>
+      </header>
       {error && <ErrorBanner error={error} />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <section aria-label="Challenge camera">
-          <CameraStage
-            ref={stageRef}
-            /*
-             * Must forward to the session. CameraStage publishes its own
-             * handler onto the module level `poseBridgeRef`; that ref carries
-             * frames INTO the stage. This prop is the way back out, so a no-op
-             * here means the overlay animates while the rep counter never
-             * advances and the challenge can never be completed.
-             */
-            onPoseFrame={(frame) => {
-              sessionRef.current?.onPoseFrame(frame);
-            }}
-            isLive={stage === 'running'}
-            overlayMessage={
-              snapshot?.pausedReason === 'pose-lost' ? 'Pose lost — step back into frame' : null
-            }
-            videoWidth={videoDims.w}
-            videoHeight={videoDims.h}
-          />
+        <section aria-label="Challenge camera" className="relative">
+          <div className="relative">
+            <CameraStage
+              ref={stageRef}
+              className="w-full"
+              /*
+               * Must forward to the session. CameraStage publishes its own
+               * handler onto the module level `poseBridgeRef`; that ref carries
+               * frames INTO the stage. This prop is the way back out, so a no-op
+               * here means the overlay animates while the rep counter never
+               * advances and the challenge can never be completed.
+               */
+              onPoseFrame={(frame) => {
+                sessionRef.current?.onPoseFrame(frame);
+              }}
+              isLive={stage === 'running'}
+              showPoster={stage === 'ready'}
+              overlayMessage={
+                snapshot?.pausedReason === 'pose-lost' ? 'Pose lost — step back into frame' : null
+              }
+              videoWidth={videoDims.w}
+              videoHeight={videoDims.h}
+            />
+          </div>
+
+          {/* Measured essentials stay immediately beneath the live camera. */}
+          {stage === 'running' && (
+            <div className="mt-3 grid grid-cols-3 gap-2 lg:hidden" aria-label="Live challenge metrics">
+              <div className="card p-3"><div className="metric-label">Time left</div><div className="tabular mt-1 text-2xl font-bold text-ink">{formatSeconds(remaining, 0)}s</div></div>
+              <div className="card p-3"><div className="metric-label">Valid</div><div className="tabular mt-1 text-2xl font-bold text-ink">{formatInt(snapshot?.metrics.validReps ?? null)}</div></div>
+              <div className="card p-3"><div className="metric-label">Form</div><div className="tabular mt-1 text-2xl font-bold text-ink">{formatInt(snapshot?.metrics.formScore ?? null)}</div></div>
+            </div>
+          )}
 
           {stage === 'ready' && (
             <div className="mt-4">
-              <button className="btn-primary" onClick={beginChallenge}>
+              <button className="btn-primary min-h-11 w-full md:w-auto" onClick={beginChallenge}>
                 Start 30 seconds
               </button>
               <p className="mt-2 text-xs text-ink-faint">
@@ -589,7 +562,10 @@ export default function ChallengePage() {
           )}
         </section>
 
-        <section aria-label="Challenge status" className="flex flex-col gap-4">
+        <section
+          aria-label="Challenge status"
+          className="flex flex-col gap-3 lg:gap-4"
+        >
           {/* Countdown */}
           <div className="card p-6 text-center">
             <div className="metric-label">Time remaining</div>
@@ -607,8 +583,8 @@ export default function ChallengePage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="card p-4">
-              <div className="metric-label text-accent">Valid reps</div>
-              <div className="tabular mt-1 text-3xl font-bold text-accent">
+              <div className="metric-label text-success">Valid reps</div>
+              <div className="tabular mt-1 text-3xl font-bold text-success">
                 {formatInt(snapshot?.metrics.validReps ?? null)}
               </div>
             </div>
@@ -643,10 +619,10 @@ export default function ChallengePage() {
           )}
 
           {stage === 'done' && result && (
-            <div className="card border-accent-deep bg-accent-wash p-5">
-              <div className="metric-label text-accent">Final result</div>
+            <div className="card border-success/40 bg-success/10 p-5">
+              <div className="metric-label text-success">Final result</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="tabular text-metric font-bold text-accent">
+                <span className="tabular text-metricSm md:text-metric font-bold text-success">
                   {formatInt(result.metrics.validReps)}
                 </span>
                 <span className="text-sm text-ink-muted">valid reps</span>
@@ -697,6 +673,38 @@ export default function ChallengePage() {
           )}
         </section>
       </div>
+
+      {/* Mobile sticky — seconds left hero + muted valid reps + End */}
+      {stage === 'running' && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-base-border bg-base/95 px-3 pt-2 backdrop-blur lg:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-[1400px] items-center gap-3">
+            <div className="min-w-0 shrink-0">
+              <div className="text-[10px] uppercase tracking-wider text-ink-muted">Left</div>
+              <div
+                className={clsx(
+                  'tabular text-xl font-bold leading-none sm:text-2xl',
+                  remaining <= 5 ? 'text-danger' : 'text-ink',
+                )}
+              >
+                {formatSeconds(remaining, 1)}s
+              </div>
+            </div>
+            <div className="min-w-0 flex-1 text-center">
+              <div className="tabular text-sm font-medium text-ink-muted">
+                {formatInt(snapshot?.metrics.validReps ?? null)} valid
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-danger min-h-11 shrink-0 px-4"
+              onClick={() => void finishChallenge()}
+            >
+              <span className="sm:hidden">End</span>
+              <span className="hidden sm:inline">End Challenge</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -729,11 +737,11 @@ function SubmissionNote({
   if (submission.status === 'saved') {
     return (
       <div
-        className="mt-4 rounded-control border border-accent-deep bg-base p-3"
+        className="mt-4 rounded-control border border-accent/30 bg-base p-3"
         role="status"
         aria-live="polite"
       >
-        <div className="text-sm font-medium text-accent">Posted to the leaderboard</div>
+        <div className="text-sm font-medium text-success">Posted to the leaderboard</div>
         <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">
           Recorded as “{name}”. This run is one entry — a further attempt adds another row rather
           than replacing this one.
