@@ -85,7 +85,8 @@ function combineElbows(
   if (leftOk && rightOk) {
     // Phone cameras often lose the far elbow behind the torso. A low-confidence
     // arm that disagrees sharply must not pull the counting angle halfway down.
-    if (Math.abs(left - right) > 70 && Math.min(leftVis, rightVis) < 0.35 && Math.max(leftVis, rightVis) > 0.5) {
+    if (Math.abs(left - right) > 35 && Math.max(leftVis, rightVis) >= 0.35 &&
+        Math.max(leftVis, rightVis) >= Math.min(leftVis, rightVis) * 1.5) {
       return leftVis > rightVis ? left : right;
     }
     const total = leftVis + rightVis;
@@ -132,10 +133,11 @@ export function extractRichMotion(
   left3D = maskImplausibleAngle(angleDeg3D(src3[L_SHOULDER], src3[L_ELBOW], src3[L_WRIST]));
   right3D = maskImplausibleAngle(angleDeg3D(src3[R_SHOULDER], src3[R_ELBOW], src3[R_WRIST]));
 
-  // Prefer a finite 3D angle when it is anatomically plausible; otherwise 2D.
+  // World coordinates can hallucinate an occluded wrist. When their angle
+  // strongly conflicts with the image, retain the image signal for counting.
   const blend = (a2: number, a3: number): number => {
     if (Number.isFinite(a3) && a3 >= ELBOW_ANGLE_MIN_PLAUSIBLE && a3 <= ELBOW_ANGLE_MAX_PLAUSIBLE) {
-      if (Number.isFinite(a2)) return 0.7 * a3 + 0.3 * a2;
+      if (Number.isFinite(a2)) return Math.abs(a3 - a2) > 40 ? a2 : 0.55 * a3 + 0.45 * a2;
       return a3;
     }
     return a2;

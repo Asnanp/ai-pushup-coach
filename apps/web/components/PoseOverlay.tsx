@@ -402,10 +402,10 @@ function drawAngleArc(
 }
 
 function isLeftIndex(i: number): boolean {
-  return i < 23 || i === 23 || i === 25 || i === 27 || i === 29 || i === 31;
+  return (i >= 11 && i <= 21 && i % 2 === 1) || i === 23 || i === 25 || i === 27 || i === 29 || i === 31;
 }
 function isRightIndex(i: number): boolean {
-  return (i >= 12 && i <= 22) || i === 24 || i === 26 || i === 28 || i === 30 || i === 32;
+  return (i >= 12 && i <= 22 && i % 2 === 0) || i === 24 || i === 26 || i === 28 || i === 30 || i === 32;
 }
 
 /**

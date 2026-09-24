@@ -158,7 +158,12 @@ export default function WorkoutPage() {
       const profile = getPreferredCaptureProfile();
       poseRef.current = new PoseEngine({
         targetFps: profile.poseFps,
-        onStatus: (s) => setPoseStatus(s),
+        onStatus: (s) => {
+          setPoseStatus(s);
+          if (s === 'error' || s === 'unavailable') {
+            failWith(makeCaptureError('MODEL_UNAVAILABLE'));
+          }
+        },
         onFrame: (frame) => {
           poseBridgeRef.current?.(frame);
         },

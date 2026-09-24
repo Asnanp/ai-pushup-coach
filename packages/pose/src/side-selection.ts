@@ -55,9 +55,13 @@ export function computeSideVisibility(landmarks: Landmark[]): SideVisibility {
   const fullRight = meanVisibility(landmarks, RIGHT_SIDE);
   const upperLeft = meanVisibility(landmarks, [L_SHOULDER, L_ELBOW, L_WRIST, L_HIP]);
   const upperRight = meanVisibility(landmarks, [R_SHOULDER, R_ELBOW, R_WRIST, R_HIP]);
+  // A visible leg must not win over the arm that supplies the elbow angle.
+  // In a floor-level phone view the far wrist is often hidden behind the torso.
+  const armLeft = Math.min(...[L_SHOULDER, L_ELBOW, L_WRIST].map((i) => landmarks[i]?.visibility ?? 0));
+  const armRight = Math.min(...[R_SHOULDER, R_ELBOW, R_WRIST].map((i) => landmarks[i]?.visibility ?? 0));
   return {
-    left: Math.max(fullLeft, upperLeft * 0.9),
-    right: Math.max(fullRight, upperRight * 0.9),
+    left: 0.65 * armLeft + 0.25 * upperLeft + 0.10 * fullLeft,
+    right: 0.65 * armRight + 0.25 * upperRight + 0.10 * fullRight,
   };
 }
 

@@ -101,6 +101,8 @@ export class PoseEngine {
 
   private readonly filters: OneEuroFilter[] = [];
   private activeSide: 'left' | 'right' | null = null;
+  private pendingSide: 'left' | 'right' | null = null;
+  private pendingSideFrames = 0;
 
   private rafId: number | null = null;
   private rvfcId: number | null = null;
@@ -108,7 +110,10 @@ export class PoseEngine {
   private isDetecting = false;
   private lastDetectTime = 0;
   private minDetectIntervalMs: number;
+  private targetDetectIntervalMs: number;
   private overloadStreak = 0;
+  private recoveryStreak = 0;
+  private detectionErrors = 0;
 
   private readonly stats: DetectionStats = { detected: 0, total: 0, lastDetectionMs: 0 };
 
@@ -130,6 +135,7 @@ export class PoseEngine {
   constructor(private readonly opts: PoseEngineOptions = {}) {
     const fps = opts.targetFps ?? 30;
     this.minDetectIntervalMs = 1000 / fps;
+    this.targetDetectIntervalMs = this.minDetectIntervalMs;
 
     // 33 landmarks x 3 coordinates (x, y, z) share one filter each.
     // Positional jitter in normalized coords is typically ~0.005 at rest and
@@ -145,8 +151,11 @@ export class PoseEngine {
   /** Live throttle: drop pose FPS when inference overruns (common on phones). */
   setTargetFps(fps: number): void {
     const clamped = Math.max(8, Math.min(30, fps));
-    this.minDetectIntervalMs = 1000 / clamped;
+    this.targetDetectIntervalMs = 1000 / clamped;
+    this.minDetectIntervalMs = this.targetDetectIntervalMs;
     this.overloadStreak = 0;
+    this.recoveryStreak = 0;
+    this.detectionErrors = 0;
   }
 
   getStatus(): PoseStatus {
@@ -183,7 +192,8 @@ export class PoseEngine {
           PoseLandmarker.createFromOptions(fileset, {
             baseOptions: { modelAssetPath: source.modelUrl, delegate },
             runningMode: 'VIDEO',
-            numPoses: 2,
+            // One exerciser per workout. A second pose adds work on slow phones.
+            numPoses: 1,
             minPoseDetectionConfidence: 0.5,
             minPosePresenceConfidence: 0.5,
             minTrackingConfidence: 0.5,
@@ -284,11 +294,17 @@ export class PoseEngine {
   /** Reset per-session state (side lock, filters, stats). */
   resetSession(): void {
     this.activeSide = null;
+    this.pendingSide = null;
+    this.pendingSideFrames = 0;
     this.lastGoodFrame = null;
     this.stats.detected = 0;
     this.stats.total = 0;
     this.isDetecting = false;
     this.filters.forEach((f) => f.reset());
+    this.minDetectIntervalMs = this.targetDetectIntervalMs;
+    this.overloadStreak = 0;
+    this.recoveryStreak = 0;
+    this.detectionErrors = 0;
   }
 
   private tick(video: HTMLVideoElement): void {
@@ -306,13 +322,19 @@ export class PoseEngine {
     const t0 = performance.now();
     try {
       result = this.landmarker.detectForVideo(video, now);
-    } catch {
-      // Transient WebGL/timestamp errors happen; skip the frame rather than
-      // tearing down the engine.
+    } catch (error) {
+      // A transient WebGL/timestamp failure is recoverable. Repeated failures
+      // must be shown to the user instead of leaving a false "Live" indicator.
+      this.detectionErrors += 1;
+      if (this.detectionErrors >= 8) {
+        this.setStatus('error', error instanceof Error ? error.message : String(error));
+        this.opts.onFrame?.(this.makeInvalidFrame(now / 1000, 0));
+      }
       return;
     } finally {
       this.isDetecting = false;
     }
+    this.detectionErrors = 0;
     this.stats.lastDetectionMs = performance.now() - t0;
     this.stats.total++;
 
@@ -323,8 +345,18 @@ export class PoseEngine {
         this.minDetectIntervalMs = Math.min(125, this.minDetectIntervalMs * 1.2);
         this.overloadStreak = 0;
       }
-    } else if (this.overloadStreak > 0) {
-      this.overloadStreak -= 1;
+      this.recoveryStreak = 0;
+    } else {
+      this.overloadStreak = 0;
+      if (this.stats.lastDetectionMs < this.minDetectIntervalMs * 0.65) {
+        this.recoveryStreak++;
+        if (this.recoveryStreak >= 20) {
+          this.minDetectIntervalMs = Math.max(this.targetDetectIntervalMs, this.minDetectIntervalMs / 1.1);
+          this.recoveryStreak = 0;
+        }
+      } else {
+        this.recoveryStreak = 0;
+      }
     }
 
     const timestamp = now / 1000;
@@ -350,13 +382,7 @@ export class PoseEngine {
     };
   }
 
-  /**
-   * Convert a raw MediaPipe result into our normalized PoseFrame.
-   *
-   * Note on side locking: once a side is chosen we keep it for the session.
-   * Switching mid-rep would produce a discontinuous joint-angle signal and
-   * break the rep state machine (see docs/POSE_SCHEMA.md §0.1).
-   */
+  /** Convert a raw MediaPipe result into our normalized PoseFrame. */
   private toPoseFrame(
     result: PoseLandmarkerResult,
     timestamp: number,
@@ -364,8 +390,7 @@ export class PoseEngine {
     const all = result.landmarks;
     if (!all || all.length === 0) return null;
 
-    // Pick the most prominent pose. With numPoses=2 the second detection is
-    // usually a bystander; the first is the tracked subject.
+    // The first detection is the tracked subject.
     const raw = all[0];
     if (!raw || raw.length < 33) return null;
 
@@ -388,11 +413,22 @@ export class PoseEngine {
       SIDE_SWITCH_MARGIN,
     );
 
-    // Lock the side for the session once we have a confident read.
+    // Keep the current arm during normal movement. Recover only after the
+    // other arm is clearly better for several consecutive processed frames.
     if (this.activeSide === null && chosen.score >= SIDE_LOCK_MIN_VISIBILITY) {
       this.activeSide = chosen.side;
+    } else if (this.activeSide !== null && chosen.switched && chosen.score >= 0.42) {
+      this.pendingSideFrames = this.pendingSide === chosen.side ? this.pendingSideFrames + 1 : 1;
+      this.pendingSide = chosen.side;
+      if (this.pendingSideFrames >= 6) {
+        this.activeSide = chosen.side;
+        this.pendingSide = null;
+        this.pendingSideFrames = 0;
+      }
+    } else {
+      this.pendingSide = null;
+      this.pendingSideFrames = 0;
     }
-
     const activeIdx = this.activeSide ?? chosen.side;
     const activeScore = activeIdx === 'left' ? sideVis.left : sideVis.right;
     const capability = evaluatePoseCapability(landmarks);

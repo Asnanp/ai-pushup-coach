@@ -144,7 +144,9 @@ export function getPreferredCaptureProfile(): Required<Pick<StartOptions, "width
   const narrow = window.matchMedia("(max-width: 1023px)").matches;
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   if (narrow || coarse) {
-    return { width: 960, height: 540, fps: 24, poseFps: 15 };
+    // MediaPipe resizes its input internally. A smaller capture keeps a phone's
+    // preview and inference responsive while preserving enough arm detail.
+    return { width: 640, height: 480, fps: 24, poseFps: 15 };
   }
   return { width: 1280, height: 720, fps: 30, poseFps: 24 };
 }

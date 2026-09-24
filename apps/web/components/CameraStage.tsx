@@ -68,7 +68,7 @@ export const CameraStage = forwardRef<CameraStageHandle, Props>(function CameraS
   const handlePoseFrame = useCallback((frame: PoseFrame) => {
     // Always forward to the session first — overlay draw must never starve the FSM.
     onPoseFrameRef.current(frame);
-    if (frame.valid && frame.landmarks.length >= 25) {
+    if (frame.landmarks.length >= 25) {
       overlayRef.current?.draw(frame.landmarks, frame.side);
     } else {
       overlayRef.current?.clear();

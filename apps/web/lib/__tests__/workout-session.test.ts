@@ -121,7 +121,7 @@ describe('WorkoutSession lifecycle', () => {
     expect(metrics.scoreStatus).toBe('insufficient-data');
   });
 
-  it('enters calibration and exposes the six camera checks', () => {
+  it('enters calibration and checks that an elbow and wrist can be tracked', () => {
     const { session } = buildSession();
     session.beginCalibration();
 
@@ -131,6 +131,7 @@ describe('WorkoutSession lifecycle', () => {
     const state = session.getCalibrationState();
     expect(state.checks.map((c) => c.id)).toEqual([
       'full-body',
+      'arm',
       'pose',
       'view',
       'lighting',

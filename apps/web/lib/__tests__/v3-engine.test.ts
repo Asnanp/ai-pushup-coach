@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Landmark } from '@ai-pushup-coach/types';
 import { angleDeg3D } from '@ai-pushup-coach/biomechanics';
+import { computeSideVisibility, chooseActiveSide } from '@ai-pushup-coach/pose';
 import {
   V3RepEngine,
   matchRepEvents,
@@ -153,6 +154,21 @@ describe('extractRichMotion', () => {
     expect(Number.isFinite(sig.elbowLeft3D)).toBe(true);
     expect(Number.isFinite(sig.shoulderWorldZ)).toBe(true);
     expect(Number.isFinite(sig.shoulderWristDist)).toBe(true);
+  });
+
+  it('does not blend a contradictory world elbow into a clear image elbow', () => {
+    const image = skeleton({ elbowDeg: 155 });
+    const world = skeleton({ elbowDeg: 90 });
+    const signal = extractRichMotion(image, 0, 'VIEW_SIDE_LEFT', world);
+    expect(signal.elbowLeft).toBeCloseTo(signal.elbowLeft2D, 5);
+  });
+
+  it('prefers the arm with a visible wrist even when the hidden side has visible legs', () => {
+    const image = skeleton({ elbowDeg: 150, leftVis: 0.75, rightVis: 0.8 });
+    image[16].visibility = 0.08;
+    const visibility = computeSideVisibility(image);
+    expect(visibility.left).toBeGreaterThan(visibility.right);
+    expect(chooseActiveSide(image, null, visibility).side).toBe('left');
   });
 });
 

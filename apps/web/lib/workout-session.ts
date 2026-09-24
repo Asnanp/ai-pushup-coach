@@ -362,13 +362,11 @@ export class WorkoutSession {
 
     const isFront = this.activeV2View === 'VIEW_FRONT';
 
-    const bodyVisible = isFront
-      ? validFrames.length >= 3 && recent.slice(-10).some((f) => f.upperBodyVisible)
-      : validFrames.length >= 5 && recent.slice(-10).every((f) => f.anklesVisible);
+    const bodyVisible = recent.slice(-10).filter((f) => f.upperBodyVisible).length >= 3;
+    const armVisible = recent.slice(-10).filter((f) => f.armVisible).length >= 3;
 
-    const poseDetected =
-      validFrames.length >= 5 ||
-      (isFront && recent.filter((f) => f.upperBodyVisible).length >= 5);
+    const poseDetected = validFrames.length >= 5 ||
+      recent.filter((f) => f.upperBodyVisible).length >= 5;
 
     const viewScore = mean(recent.map((f) => f.sideDominance));
     const effectiveView: CameraView =
@@ -400,11 +398,15 @@ export class WorkoutSession {
     const checks: CalibrationCheck[] = [
       {
         id: 'full-body',
-        label: isFront ? 'Upper body in frame' : 'Full body in frame',
+        label: 'Upper body in frame',
         passed: effectiveBodyVisible,
-        hint: isFront
-          ? 'Position yourself so your shoulders, chest, and arms are in view.'
-          : 'Move further from the camera so your feet are visible.',
+        hint: 'Place the phone to your side, at floor height, with your shoulders and arms in view.',
+      },
+      {
+        id: 'arm',
+        label: 'Elbow and wrist visible',
+        passed: armVisible || stable,
+        hint: 'Move the phone to the side that shows your near arm. Keep your hand on the floor in frame and light it from the front.',
       },
       {
         id: 'pose',
@@ -954,6 +956,7 @@ interface CalibrationObservation {
   valid: boolean;
   sideVisibility: number;
   anklesVisible: boolean;
+  armVisible: boolean;
   upperBodyVisible: boolean;
   upperBodyVisibility: number;
   sideDominance: number;
@@ -965,11 +968,12 @@ function buildObservation(
   pose?: PoseFrame,
   activeView: V2CameraView = 'VIEW_UNKNOWN',
 ): CalibrationObservation {
-  if (!pose || !pose.valid || pose.landmarks.length < 33) {
+  if (!pose || pose.landmarks.length < 33) {
     return {
       valid: false,
       sideVisibility: 0,
       anklesVisible: false,
+      armVisible: false,
       upperBodyVisible: false,
       upperBodyVisibility: 0,
       sideDominance: 0,
@@ -1034,6 +1038,9 @@ function buildObservation(
     (!!wrR && wrR.visibility > 0.3);
 
   const upperBodyVisible = shouldersOk && armsOk;
+  const armVisible =
+    [shL, elL, wrL].every((lm) => (lm?.visibility ?? 0) >= 0.22) ||
+    [shR, elR, wrR].every((lm) => (lm?.visibility ?? 0) >= 0.22);
 
   const upperLms = [shL, shR, elL, elR, wrL, wrR, hipL, hipR].filter(Boolean);
   const upperBodyVisibility =
@@ -1059,7 +1066,7 @@ function buildObservation(
 
   const spanX = Math.abs((ankleL?.x ?? 0) - shMid.x);
   const spanY = Math.abs((ankleL?.y ?? 0) - shMid.y);
-  const sideBodySpan = Math.hypot(spanX, spanY);
+  const sideBodySpan = anklesVisible ? Math.hypot(spanX, spanY) : torsoLen;
   const frontBodySpan = Math.max(shoulderWidth, torsoLen * 0.9);
 
   const isFront = activeView === 'VIEW_FRONT' || widthRatio > 0.85;
@@ -1069,6 +1076,7 @@ function buildObservation(
     valid: frame.valid,
     sideVisibility: pose.sideVisibility,
     anklesVisible,
+    armVisible,
     upperBodyVisible,
     upperBodyVisibility,
     sideDominance,
